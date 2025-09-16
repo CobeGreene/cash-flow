@@ -129,17 +129,17 @@ const incomeExpensesBreakdown = computed(() => {
 		income.push(
 			totalBreakdownAmount(transactions.value, incomeSliceFunc, (date: Date) =>
 				isSameMonthAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 		expenses.push(
 			totalBreakdownAmount(transactions.value, expensesSliceFunc, (date: Date) =>
 				isSameMonthAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 		investing.push(
 			totalBreakdownAmount(transactions.value, investingSliceFunc, (date: Date) =>
 				isSameMonthAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 
 		startDate.setMonth(startDate.getMonth() + 1)

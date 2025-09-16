@@ -1,26 +1,18 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 import os
 import csv
 import io
 from datetime import datetime
 import logging
-import queue
-from typing import Any, Union, cast
+from typing import Any, Union
 import threading
-import sys
 from transformers import pipeline
-# Master CSV manager import and setup
 from master_csv_manager import MasterCSVManager
+from categorizer_manager import CategorizerManager
 
-sys.path.append("../categorized_transactions")
-
-import constants
-
-classifer = pipeline("text-classification",
-                     model="../categorized_transactions/my_model")
-
+classifier = pipeline("text-classification",
+                      model="../categorized_transactions/my_model")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,65 +21,26 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Configure queue
-categorized_queue = queue.Queue()
-
-
-
-
-class CategorizedTask:
-    def __init__(self, rows: list[dict[Union[str, Any], Union[str, Any]]]):
-        self.rows = rows
-
-    def doWork(self):
-        print("Start work on categorizing")
-        for row in self.rows:
-            type_result = classifer(row['Name'])
-            type_label = None
-            if type_result and isinstance(type_result, list):
-                first_result = type_result[0]
-                if isinstance(first_result, dict) and 'label' in first_result:
-                    type_label = first_result['label']
-            category = constants.type_to_category.get(type_label, "Unknown")
-            row['Category'] = category
-            row['Sub Category'] = type_label if type_label else "Unknown"
-        master_csv_manager.update_rows_with_categories(updated_rows=self.rows)
-        print("Finish work on categorizing")
-
-
-def categorized_consumer(queue: queue.Queue):
-    print('Consumer: Running')
-    while True:
-        # Get a unit of work
-        item = queue.get()
-        # Check for stop
-        if item is None:
-            break
-        # Perform work
-        categorized_task = cast(CategorizedTask, item)
-        categorized_task.doWork()
-        queue.task_done()
-    # All done
-    print('Consumer: Done')
-
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(
+app.config['DATA_FOLDER'] = os.path.join(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))), 'data')
 app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
 # Create uploads directory if it doesn't exist
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['DATA_FOLDER'], exist_ok=True)
 
 master_csv_manager = MasterCSVManager(
     os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        app.config['UPLOAD_FOLDER'],
-        'master_transactions.csv'
+        app.config['DATA_FOLDER']
     )
 )
 
+categorized_manager = CategorizerManager(classifier, master_csv_manager, os.path.join(
+    os.path.abspath(os.path.dirname(__file__)),
+    app.config['DATA_FOLDER']))
 
 
 def allowed_file(filename):
@@ -129,7 +82,6 @@ def parse_csv_content(file_content):
         }
 
 
-
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
@@ -143,10 +95,23 @@ def health_check():
 @app.route('/transactions', methods=['GET'])
 def get_transactions():
     # Read master file rows using the manager
-    result = master_csv_manager.read_master_csv()
+    result = master_csv_manager.read_master_csv_list()
     return jsonify({
         'columns': result['columns'],
         'data': result['rows']
+    })
+
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    result = categorized_manager.get_categories()
+    return jsonify({
+        'data': result
+    })
+
+@app.route('/train', methods=['POST'])
+def train_transactions():
+    categorized_manager.add_train_task()
+    return jsonify({
     })
 
 
@@ -189,8 +154,10 @@ def upload_csv():
         # Update master CSV with new data
 
         print("Adding rows to master file")
-        master_result = master_csv_manager.add_rows_to_master_csv(result['data'])
-        categorized_queue.put(CategorizedTask(master_result['added_rows']), block=False)
+        master_result = master_csv_manager.add_rows_to_master_csv(
+            result['data'])
+
+        categorized_manager.add_categorized_task(master_result['added_rows'])
         print("Finish adding rows to master file")
 
         logger.info(
@@ -243,12 +210,6 @@ def not_found(e):
 
 
 if __name__ == '__main__':
-    consumer = threading.Thread(
-        target=categorized_consumer, args=(categorized_queue,))
-    consumer.start()
     app.run(debug=True, host='0.0.0.0', port=5000)
     print("App Finish")
-    categorized_queue.join()
-    categorized_queue.put(None)
-    consumer.join()
-    categorized_queue.join()
+    categorized_manager.stop()

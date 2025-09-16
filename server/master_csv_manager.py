@@ -9,12 +9,18 @@ FIELDNAMES = [
     'Memo', 'Amount', 'Category', 'Sub Category'
 ]
 
+
 class MasterCSVManager:
-    def __init__(self, master_file_path: str):
-        self.master_file_path = master_file_path
+    def __init__(self, data_folder: str):
+        self.master_file_path = os.path.join(
+            data_folder, 'master_transactions.csv')
         self.lock = threading.Lock()
 
-    def read_master_csv(self):
+    
+    def get_master_file_path(self):
+        return self.master_file_path
+    
+    def read_master_csv_dict(self):
         """Read all rows and columns from the master CSV file."""
         with self.lock:
             if os.path.exists(self.master_file_path):
@@ -22,6 +28,17 @@ class MasterCSVManager:
                     reader = csv.DictReader(f)
                     rows = list(reader)
                     columns = reader.fieldnames if reader.fieldnames else []
+                    return {'columns': columns, 'rows': rows}
+            return {'columns': [], 'rows': []}
+        
+    def read_master_csv_list(self):
+        """Read all rows and columns from the master CSV file."""
+        with self.lock:
+            if os.path.exists(self.master_file_path):
+                with open(self.master_file_path, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    columns = next(reader, [])
+                    rows = list(reader)
                     return {'columns': columns, 'rows': rows}
             return {'columns': [], 'rows': []}
 

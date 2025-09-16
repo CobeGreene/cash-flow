@@ -123,17 +123,17 @@ const incomeExpensesBreakdown = computed(() => {
 		income.push(
 			totalBreakdownAmount(transactions.value, incomeSliceFunc, (date: Date) =>
 				isSameYearAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 		expenses.push(
 			totalBreakdownAmount(transactions.value, expensesSliceFunc, (date: Date) =>
 				isSameYearAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 		investing.push(
 			totalBreakdownAmount(transactions.value, investingSliceFunc, (date: Date) =>
 				isSameYearAsCurrentDate(date, startDate)
-			)
+			).toFixed(2)
 		)
 
 		startDate.setFullYear(startDate.getFullYear() + 1)

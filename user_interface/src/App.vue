@@ -3,15 +3,21 @@ import { ref, inject } from 'vue'
 import { RouterView } from 'vue-router'
 import { HttpService } from '@/service/http-service'
 import { useTransactionsStore } from '@/store/transactions_store'
+import { useCategoriesStore } from '@/store/categories_store'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
 
 const http = inject<HttpService>('http')
-const store = useTransactionsStore()
+const transactionStore = useTransactionsStore()
+const categoriesStore = useCategoriesStore()
 
 http?.get('transactions').then((data) => {
-	store.loadTransactions(data['data'])
+	transactionStore.loadTransactions(data['data'])
+})
+
+http?.get('categories').then((data) => {
+	categoriesStore.loadCategories(data['data'])
 })
 
 const handleFileUpload = async (event: Event) => {
