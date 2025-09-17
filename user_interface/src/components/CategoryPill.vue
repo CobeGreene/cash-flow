@@ -1,28 +1,75 @@
 <script setup lang="ts">
-import { defineProps } from 'vue'
+import { defineProps, defineEmits, ref } from 'vue'
+
+const emit = defineEmits(['editClick', 'updateCategory', 'deleteCategory', 'cancelEdit'])
 
 const props = defineProps<{
 	label: string
+	isEditing?: boolean
 }>()
+
+const newCategoryName = ref<string>('')
+
+function handleEditClick() {
+	newCategoryName.value = props.label
+	emit('editClick')
+}
+
+function handleUpdateCategory() {
+	emit('updateCategory', newCategoryName.value)
+}
+
+function handleDeleteCategory() {
+	emit('deleteCategory')
+}
+
+function handleCancelEdit() {
+	emit('cancelEdit')
+}
 </script>
 
 <template>
 	<div class="d-inline-flex align-items-center me-2 mb-2 custom-chip-container">
-		<span class="badge rounded-pill text-bg-primary p-2 me-1"> {{ props.label }} </span>
-		<div class="custom-chip-actions d-flex">
-			<button
-				class="btn btn-sm btn-warning text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
-				title="Edit"
-			>
-				<i class="bi bi-check"></i>
-			</button>
-			<button
-				class="btn btn-sm btn-danger text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
-				title="Delete"
-			>
-				<i class="bi bi-x"></i>
-			</button>
-		</div>
+		<template v-if="props.isEditing">
+			<span class="badge rounded-pill text-bg-primary p-2 me-1">
+				<input type="text" v-model="newCategoryName" class="form-control form-control-sm" />
+			</span>
+			<div class="d-flex">
+				<button
+					class="btn btn-sm btn-danger text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
+					title="Cancel"
+					@click="handleCancelEdit()"
+				>
+					<i class="bi bi-x"></i>
+				</button>
+				<button
+					class="btn btn-sm btn-warning text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
+					title="Save"
+					@click="handleUpdateCategory()"
+				>
+					<i class="bi bi-check"></i>
+				</button>
+			</div>
+		</template>
+		<template v-else>
+			<span class="badge rounded-pill text-bg-primary p-2 me-1"> {{ props.label }} </span>
+			<div class="custom-chip-actions d-flex">
+				<button
+					class="btn btn-sm btn-warning text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
+					title="Edit"
+					@click="handleEditClick()"
+				>
+					<i class="bi bi-pencil"></i>
+				</button>
+				<button
+					class="btn btn-sm btn-danger text-dark p-0 me-1 rounded-circle d-flex align-items-center justify-content-center custom-chip-action"
+					title="Delete"
+					@click="handleDeleteCategory()"
+				>
+					<i class="bi bi-trash3"></i>
+				</button>
+			</div>
+		</template>
 	</div>
 </template>
 

@@ -20,9 +20,36 @@ export const useCategoriesStore = defineStore('categories', () => {
     categories.value = data
   }
 
+  function updateCategory(oldName: string, newName: string | null) {
+    if (oldName === newName) {
+      return
+    }
+    const newCategories: { [key: string]: string[] } = {}
+    for (const key in categories.value) {
+      if (newName === null) {
+        newCategories[key] = categories.value[key].filter((cat) => cat !== oldName)
+        continue
+      } else {
+        newCategories[key] = categories.value[key].map((cat) => (cat === oldName ? newName : cat))
+      }
+    }
+    categories.value = newCategories
+  }
+
+  function addSubCategory(category: string, subCategory: string) {
+    const newCategories: { [key: string]: string[] } = {}
+    for (const key in categories.value) {
+      newCategories[key] = [...categories.value[key]]
+    }
+    newCategories[category].push(subCategory)
+    categories.value = newCategories
+  }
+
   return {
     categories,
     loadCategories,
+    updateCategory,
+    addSubCategory,
     incomeSubCategories,
     ignoreSubCategories,
     investmentSubCategories,
