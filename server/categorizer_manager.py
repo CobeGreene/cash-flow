@@ -2,13 +2,14 @@ import queue
 from typing import Any, Union, cast
 import threading
 from categorizer_constants import type_to_category, default_categories
-from master_csv_manager import MasterCSVManager
+from master_csv_manager import MasterCSVManager, TransactionRows
 from datasets import load_dataset
 import os
 import json
 
+
 class CategorizedTask:
-    def __init__(self, rows: list[dict[Union[str, Any], Union[str, Any]]], classifier, master_csv_manager: MasterCSVManager):
+    def __init__(self, rows: TransactionRows, classifier, master_csv_manager: MasterCSVManager):
         self.rows = rows
         self.classifier = classifier
         self.master_csv_manager = master_csv_manager
@@ -28,6 +29,67 @@ class CategorizedTask:
         self.master_csv_manager.update_rows_with_categories(
             updated_rows=self.rows)
         print("Finish work on categorizing")
+
+
+class UpdateCategoriesTask:
+    def __init__(self, new_categories_updates: list[dict], category_file_path: str, lock: threading.Lock, master_csv_manager: MasterCSVManager):
+        self.new_categories_updates = new_categories_updates
+        self.category_file_path = category_file_path
+        self.master_csv_manager = master_csv_manager
+        self.lock = lock
+
+    def doWork(self):
+        print("Start updating categories", self.new_categories_updates)
+        transactions = self.master_csv_manager.read_master_csv_dict()
+        updated_rows: TransactionRows = []
+        for edit in self.new_categories_updates:
+            for row in transactions:
+                if (edit["type"] == 'update' and 
+                    edit["change"]["subCategory"] == row["Sub Category"]):
+                    row['Sub Category'] = edit["change"]["newName"]
+                    updated_rows.append(row)
+                elif (edit["type"] == 'delete' and
+                      edit["change"]["subCategory"] == row["Sub Category"]):
+                    row['Category'] = ""
+                    row['Sub Category'] = ""
+                    updated_rows.append(row)
+        
+        self.master_csv_manager.update_rows_with_categories(updated_rows=updated_rows)
+
+        with self.lock:
+            # Read existing categories from file
+            categories = default_categories.copy()
+            if os.path.exists(self.category_file_path):
+                with open(self.category_file_path, 'r', encoding='utf-8') as f:
+                    categories = json.load(f)
+
+            # Apply edits to categories
+            for edit in self.new_categories_updates:
+                if (edit["type"] == 'update'):
+                    sub_cat = edit["change"]["subCategory"]
+                    new_name = edit["change"]["newName"]
+                    # Update subcategory name
+                    for _cat, sub_categories in categories.items():
+                        if sub_cat in sub_categories:
+                            sub_categories[sub_categories.index(sub_cat)] = new_name
+                elif (edit["type"] == 'delete'):
+                    sub_cat = edit["change"]["subCategory"]
+                    # Remove subcategory
+                    for _cat, sub_categories in categories.items():
+                        if sub_cat in sub_categories:
+                            sub_categories.remove(sub_cat)
+                elif edit["type"] == 'add':
+                    # Add new subcategory under main category
+                    sub_cat = edit["change"]["subCategory"]
+                    main_cat = edit["change"]["category"]
+                    categories.setdefault(main_cat, [])
+                    if sub_cat not in categories[main_cat]:
+                        categories[main_cat].append(sub_cat)
+
+            # Write updated categories back to file
+            with open(self.category_file_path, 'w', encoding='utf-8') as f:
+                json.dump(categories, f, indent=4)
+        print("Finish updating categories")
 
 
 class TrainTask:
@@ -65,7 +127,7 @@ class CategorizerManager:
         self.lock = threading.Lock()
         self.categories = self._get_category_from_file()
 
-    def add_categorized_task(self, rows):
+    def add_categorized_task(self, rows: TransactionRows):
         task = CategorizedTask(rows, self.classifier, self.master_csv_manager)
         self.queue.put(task, block=False)
 
@@ -76,6 +138,11 @@ class CategorizerManager:
 
     def get_categories(self):
         return self.categories
+
+    def update_categories(self, new_categories):
+        self.queue.put(UpdateCategoriesTask(
+            new_categories, self.category_file_path, self.lock, self.master_csv_manager), block=False)
+        return True
 
     def categorized_consumer(self, queue):
         print('Consumer: Running')

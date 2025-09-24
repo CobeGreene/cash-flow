@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { useCategoriesStore } from '@/store/categories_store'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, inject } from 'vue'
+import { HttpService } from '@/service/http-service'
 import CategoryPill from '@/components/CategoryPill.vue'
 import AddSubCategoryPill from '@/components/AddSubCategoryPill.vue'
 
 const categoriesStore = useCategoriesStore()
-const { incomeSubCategories, investmentSubCategories, expensesCategories, ignoreSubCategories } =
-	storeToRefs(categoriesStore)
+const {
+	incomeEditSubCategories,
+	investmentEditSubCategories,
+	expensesEditCategories,
+	ignoreEditSubCategories,
+	editChanges,
+} = storeToRefs(categoriesStore)
+const http = inject<HttpService>('http')
 
-const categoriesUpdated = ref<boolean>(false)
+const categoriesUpdated = computed(() => editChanges.value.length > 0)
+
 const editingCategory = ref<string | null>(null)
 const addingCategory = ref<string | null>(null)
 
@@ -24,7 +32,6 @@ function updateCategory(oldName: string, newName: string | null) {
 	categoriesStore.updateCategory(oldName, newName)
 	editingCategory.value = null
 	addingCategory.value = null
-	categoriesUpdated.value = true
 }
 
 function addingSubCategory(category: string | null) {
@@ -36,15 +43,33 @@ function addSubCategory(category: string, subCategory: string) {
 	editingCategory.value = null
 	categoriesStore.addSubCategory(category, subCategory)
 }
+
+function saveCategories() {
+	http?.post('categories', { changes: editChanges.value })
+		.then((data) => {
+			// categoriesStore.loadCategories(data['data'])
+			alert(`Categories updated successfully! ${data['data']}`)
+		})
+		.catch((error) => {
+			console.error('Error updating categories:', error)
+			alert('Failed to update categories. Please try again.')
+		})
+}
 </script>
 
 <template>
-	<button class="btn btn-outline-primary mt-3" :disabled="!categoriesUpdated">Save</button>
+	<button
+		class="btn btn-outline-primary mt-3"
+		:disabled="!categoriesUpdated"
+		@click="saveCategories()"
+	>
+		Save
+	</button>
 	<div class="category-pills-view mt-3">
 		<h3>Income</h3>
 		<div class="d-flex flex-wrap gap-2">
 			<CategoryPill
-				v-for="cat in incomeSubCategories"
+				v-for="cat in incomeEditSubCategories"
 				:key="cat"
 				:label="cat"
 				@edit-click="toggleEditCategory(cat)"
@@ -64,13 +89,14 @@ function addSubCategory(category: string, subCategory: string) {
 		<h3>Investment</h3>
 		<div class="d-flex flex-wrap gap-2">
 			<CategoryPill
-				v-for="cat in investmentSubCategories"
+				v-for="cat in investmentEditSubCategories"
 				:key="cat"
 				:label="cat"
 				@edit-click="toggleEditCategory(cat)"
 				@cancel-edit="cancelCategoryEdit()"
 				@update-category="updateCategory(cat, $event)"
 				@delete-category="updateCategory(cat, null)"
+				:is-editing="editingCategory === cat"
 			/>
 			<AddSubCategoryPill
 				:is-editing="addingCategory === 'Investment'"
@@ -81,7 +107,7 @@ function addSubCategory(category: string, subCategory: string) {
 		</div>
 		<hr />
 		<h3>Expenses</h3>
-		<template v-for="(value, key) in expensesCategories" :key="key">
+		<template v-for="(value, key) in expensesEditCategories" :key="key">
 			<h4>{{ key }}</h4>
 			<div class="d-flex flex-wrap gap-2">
 				<CategoryPill
@@ -92,6 +118,7 @@ function addSubCategory(category: string, subCategory: string) {
 					@cancel-edit="cancelCategoryEdit()"
 					@update-category="updateCategory(cat, $event)"
 					@delete-category="updateCategory(cat, null)"
+					:is-editing="editingCategory === cat"
 				/>
 				<AddSubCategoryPill
 					:is-editing="addingCategory === key"
@@ -105,13 +132,14 @@ function addSubCategory(category: string, subCategory: string) {
 		<h3>Ignore</h3>
 		<div class="d-flex flex-wrap gap-2">
 			<CategoryPill
-				v-for="cat in ignoreSubCategories"
+				v-for="cat in ignoreEditSubCategories"
 				:key="cat"
 				:label="cat"
 				@edit-click="toggleEditCategory(cat)"
 				@cancel-edit="cancelCategoryEdit()"
 				@update-category="updateCategory(cat, $event)"
 				@delete-category="updateCategory(cat, null)"
+				:is-editing="editingCategory === cat"
 			/>
 			<AddSubCategoryPill
 				:is-editing="addingCategory === 'Ignore'"

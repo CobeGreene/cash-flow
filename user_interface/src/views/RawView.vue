@@ -2,10 +2,14 @@
 import { ref } from 'vue'
 import CategoryEditor from '@/components/CategoryEditor.vue'
 import RawTable from '@/components/RawTable.vue'
+import { useCategoriesStore } from '@/store/categories_store'
 
 const showTable = ref(true) // true: show table, false: show category pills
 function toggleView() {
 	showTable.value = !showTable.value
+	if (!showTable.value) {
+		useCategoriesStore().restoreEditCategories()
+	}
 }
 </script>
 

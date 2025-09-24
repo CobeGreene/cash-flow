@@ -9,6 +9,8 @@ FIELDNAMES = [
     'Memo', 'Amount', 'Category', 'Sub Category'
 ]
 
+TransactionRows = list[dict[Union[str, Any], Union[str, Any]]]
+
 
 class MasterCSVManager:
     def __init__(self, data_folder: str):
@@ -20,16 +22,15 @@ class MasterCSVManager:
     def get_master_file_path(self):
         return self.master_file_path
     
-    def read_master_csv_dict(self):
+    def read_master_csv_dict(self) -> TransactionRows:
         """Read all rows and columns from the master CSV file."""
         with self.lock:
             if os.path.exists(self.master_file_path):
                 with open(self.master_file_path, 'r', newline='', encoding='utf-8') as f:
                     reader = csv.DictReader(f)
                     rows = list(reader)
-                    columns = reader.fieldnames if reader.fieldnames else []
-                    return {'columns': columns, 'rows': rows}
-            return {'columns': [], 'rows': []}
+                    return rows
+            return []
         
     def read_master_csv_list(self):
         """Read all rows and columns from the master CSV file."""
@@ -42,7 +43,7 @@ class MasterCSVManager:
                     return {'columns': columns, 'rows': rows}
             return {'columns': [], 'rows': []}
 
-    def update_rows_with_categories(self, updated_rows: list[dict[Union[str, Any], Union[str, Any]]]):
+    def update_rows_with_categories(self, updated_rows: TransactionRows):
         """Update rows with categories"""
         with self.lock:
             existing_rows = []
@@ -70,7 +71,7 @@ class MasterCSVManager:
                 writer.writerows(existing_rows)
         return True
 
-    def add_rows_to_master_csv(self, new_rows: list[dict[Union[str, Any], Union[str, Any]]]):
+    def add_rows_to_master_csv(self, new_rows: TransactionRows):
         """Update master CSV file with new rows, deduplicating based on all columns."""
         with self.lock:
             existing_rows = []

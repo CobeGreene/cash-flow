@@ -10,6 +10,7 @@ import threading
 from transformers import pipeline
 from master_csv_manager import MasterCSVManager
 from categorizer_manager import CategorizerManager
+import json
 
 classifier = pipeline("text-classification",
                       model="../categorized_transactions/my_model")
@@ -108,6 +109,14 @@ def get_categories():
         'data': result
     })
 
+@app.route('/categories', methods=['POST'])
+def update_categories():
+    data = json.loads(request.data.decode('utf-8'))
+    result = categorized_manager.update_categories(data["changes"])
+    return jsonify({
+        'data': result
+    })
+
 @app.route('/train', methods=['POST'])
 def train_transactions():
     categorized_manager.add_train_task()
@@ -152,7 +161,6 @@ def upload_csv():
             return jsonify(result), 400
 
         # Update master CSV with new data
-
         print("Adding rows to master file")
         master_result = master_csv_manager.add_rows_to_master_csv(
             result['data'])

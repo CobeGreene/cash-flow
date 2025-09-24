@@ -1,23 +1,40 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+type EditChange =
+  | { subCategory: string; newName: string | null } // update
+  | { subCategory: string } // delete
+  | { subCategory: string | null; category: string } // add
+
 export const useCategoriesStore = defineStore('categories', () => {
   const categories = ref<{ [key: string]: string[] }>({})
 
-  const incomeSubCategories = computed(() => categories.value['Income'] || [])
-  const ignoreSubCategories = computed(() => categories.value['Ignore'] || [])
-  const investmentSubCategories = computed(() => categories.value['Investment'] || [])
+  const editCategories = ref<{ [key: string]: string[] }>({})
+  const editChanges = ref<{ type: string; change: EditChange }[]>([])
+  const incomeEditSubCategories = computed(() => editCategories.value['Income'] || [])
+  const ignoreEditSubCategories = computed(() => editCategories.value['Ignore'] || [])
+  const investmentEditSubCategories = computed(() => editCategories.value['Investment'] || [])
 
-  const expensesCategories = computed(() => {
+  const expensesEditCategories = computed(() => {
     return Object.fromEntries(
-      Object.entries(categories.value).filter(
+      Object.entries(editCategories.value).filter(
         ([key]) => key !== 'Income' && key !== 'Ignore' && key !== 'Investment',
       ),
     )
   })
 
+  function restoreEditCategories() {
+    const categoriesCopy: { [key: string]: string[] } = {}
+    for (const key in categories.value) {
+      categoriesCopy[key] = [...categories.value[key]]
+    }
+    editCategories.value = categoriesCopy
+    editChanges.value = []
+  }
+
   function loadCategories(data: { [key: string]: string[] }) {
     categories.value = data
+    restoreEditCategories()
   }
 
   function updateCategory(oldName: string, newName: string | null) {
@@ -25,24 +42,35 @@ export const useCategoriesStore = defineStore('categories', () => {
       return
     }
     const newCategories: { [key: string]: string[] } = {}
-    for (const key in categories.value) {
+    for (const key in editCategories.value) {
       if (newName === null) {
-        newCategories[key] = categories.value[key].filter((cat) => cat !== oldName)
+        newCategories[key] = editCategories.value[key].filter((cat) => cat !== oldName)
         continue
       } else {
-        newCategories[key] = categories.value[key].map((cat) => (cat === oldName ? newName : cat))
+        newCategories[key] = editCategories.value[key].map((cat) =>
+          cat === oldName ? newName : cat,
+        )
       }
     }
-    categories.value = newCategories
+    editCategories.value = newCategories
+    if (newName === null) {
+      editChanges.value.push({ type: 'delete', change: { subCategory: oldName } })
+    } else {
+      editChanges.value.push({ type: 'update', change: { subCategory: oldName, newName } })
+    }
   }
 
-  function addSubCategory(category: string, subCategory: string) {
+  function addSubCategory(category: string, subCategory: string | null) {
     const newCategories: { [key: string]: string[] } = {}
-    for (const key in categories.value) {
-      newCategories[key] = [...categories.value[key]]
+    for (const key in editCategories.value) {
+      newCategories[key] = [...editCategories.value[key]]
     }
-    newCategories[category].push(subCategory)
-    categories.value = newCategories
+    newCategories[category] = newCategories[category] || []
+    if (subCategory !== null) {
+      newCategories[category].push(subCategory)
+    }
+    editCategories.value = newCategories
+    editChanges.value.push({ type: 'add', change: { subCategory, category } })
   }
 
   return {
@@ -50,9 +78,11 @@ export const useCategoriesStore = defineStore('categories', () => {
     loadCategories,
     updateCategory,
     addSubCategory,
-    incomeSubCategories,
-    ignoreSubCategories,
-    investmentSubCategories,
-    expensesCategories,
+    incomeEditSubCategories,
+    ignoreEditSubCategories,
+    investmentEditSubCategories,
+    expensesEditCategories,
+    restoreEditCategories,
+    editChanges,
   }
 })
