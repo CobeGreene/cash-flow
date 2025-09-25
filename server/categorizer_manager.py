@@ -1,29 +1,36 @@
+from itertools import chain
 import queue
-from typing import Any, Union, cast
+from typing import Union, cast
 import threading
-from categorizer_constants import type_to_category, default_categories
+from categorizer_constants import default_categories, CategoriesDict
 from master_csv_manager import MasterCSVManager, TransactionRows
 from datasets import load_dataset
 import os
 import json
+from transformers import AutoModelForSequenceClassification
+from datasets import load_dataset
+from transformers import pipeline, Pipeline
 
 
 class CategorizedTask:
-    def __init__(self, rows: TransactionRows, classifier, master_csv_manager: MasterCSVManager):
+    def __init__(self, rows: TransactionRows, categorizer_manager: 'CategorizerManager', master_csv_manager: MasterCSVManager):
         self.rows = rows
-        self.classifier = classifier
+        self.categorizer_manager = categorizer_manager
         self.master_csv_manager = master_csv_manager
 
     def doWork(self):
         print("Start work on categorizing")
         for row in self.rows:
-            type_result = self.classifier(row['Name'])
+            type_result = self.categorizer_manager.get_classifier()(
+                row['Name'])
             type_label = None
             if type_result and isinstance(type_result, list):
                 first_result = type_result[0]
                 if isinstance(first_result, dict) and 'label' in first_result:
                     type_label = first_result['label']
-            category = type_to_category.get(type_label or "Unknown")
+            category = "unknown"
+            if (type_label):
+                category = self.categorizer_manager.get_category_from_subcategory(type_label)
             row['Category'] = category
             row['Sub Category'] = type_label if type_label else "Unknown"
         self.master_csv_manager.update_rows_with_categories(
@@ -44,8 +51,8 @@ class UpdateCategoriesTask:
         updated_rows: TransactionRows = []
         for edit in self.new_categories_updates:
             for row in transactions:
-                if (edit["type"] == 'update' and 
-                    edit["change"]["subCategory"] == row["Sub Category"]):
+                if (edit["type"] == 'update' and
+                        edit["change"]["subCategory"] == row["Sub Category"]):
                     row['Sub Category'] = edit["change"]["newName"]
                     updated_rows.append(row)
                 elif (edit["type"] == 'delete' and
@@ -53,8 +60,9 @@ class UpdateCategoriesTask:
                     row['Category'] = ""
                     row['Sub Category'] = ""
                     updated_rows.append(row)
-        
-        self.master_csv_manager.update_rows_with_categories(updated_rows=updated_rows)
+
+        self.master_csv_manager.update_rows_with_categories(
+            updated_rows=updated_rows)
 
         with self.lock:
             # Read existing categories from file
@@ -71,7 +79,8 @@ class UpdateCategoriesTask:
                     # Update subcategory name
                     for _cat, sub_categories in categories.items():
                         if sub_cat in sub_categories:
-                            sub_categories[sub_categories.index(sub_cat)] = new_name
+                            sub_categories[sub_categories.index(
+                                sub_cat)] = new_name
                 elif (edit["type"] == 'delete'):
                     sub_cat = edit["change"]["subCategory"]
                     # Remove subcategory
@@ -112,10 +121,48 @@ class TrainTask:
         print("Finish work on training")
 
 
+class InitializedCategorizerManager:
+    def __init__(self, categorizer_manager: 'CategorizerManager', data_folder: str, lock: threading.Lock):
+        self.categorizer_manager = categorizer_manager
+        self.data_folder = data_folder
+        self.lock = lock
+
+    def doWork(self):
+        print("Initializing categorizer manager...")
+        model_folder = self.categorizer_manager.get_model_file_path()
+        categories: CategoriesDict = {}
+        with self.lock:
+            if os.path.exists(self.categorizer_manager.get_category_file_path()):
+                with open(self.categorizer_manager.get_category_file_path(), 'r', encoding='utf-8') as f:
+                    categories = json.load(f)
+            else:
+                categories = default_categories
+
+            self.categorizer_manager.set_categories(categories)
+            if not os.path.exists(self.categorizer_manager.get_model_file_path()):
+                all_categories = list(chain.from_iterable(
+                    [category_types for _category, category_types in categories.items()]))
+                label_to_id = {label: i for i,
+                               label in enumerate(all_categories)}
+                id_to_label = {i: label for i,
+                               label in enumerate(all_categories)}
+                model = AutoModelForSequenceClassification.from_pretrained(
+                    "distilbert/distilbert-base-uncased", num_labels=len(all_categories), id2label=id_to_label, label2id=label_to_id
+                )
+                classifier = pipeline("text-classification",
+                                      model=model, tokenizer="distilbert/distilbert-base-uncased")
+                self.categorizer_manager.set_classifier(classifier)
+            else:
+                classifier = pipeline("text-classification",
+                                      model=model_folder)
+                self.categorizer_manager.set_classifier(classifier)
+        print("Categorizer Manager is initialized and ready to use.")
+
+
 class CategorizerManager:
-    def __init__(self, classifier, master_csv_manager: MasterCSVManager, data_folder: str):
+    def __init__(self, master_csv_manager: MasterCSVManager, data_folder: str):
         self.queue = queue.Queue()
-        self.classifier = classifier
+
         self.master_csv_manager = master_csv_manager
         self.consumer_thread = threading.Thread(
             target=self.categorized_consumer, args=(self.queue,))
@@ -124,11 +171,15 @@ class CategorizerManager:
         self.data_folder = data_folder
         self.category_file_path = os.path.join(
             data_folder, 'category_data.json')
+        self.model_file_path = os.path.join(
+            data_folder, 'classifier_model')
+        self.categories: Union[CategoriesDict, None] = None
+        self.classifier: Union[Pipeline, None] = None
         self.lock = threading.Lock()
-        self.categories = self._get_category_from_file()
+        self.has_queue_initialized_task = False
 
     def add_categorized_task(self, rows: TransactionRows):
-        task = CategorizedTask(rows, self.classifier, self.master_csv_manager)
+        task = CategorizedTask(rows, self, self.master_csv_manager)
         self.queue.put(task, block=False)
 
     def add_train_task(self):
@@ -136,8 +187,41 @@ class CategorizerManager:
                          self.master_csv_manager)
         self.queue.put(task, block=False)
 
+    def add_initialized_task(self):
+        if (self.has_queue_initialized_task):
+            return
+        task = InitializedCategorizerManager(
+            self, self.data_folder, self.lock)
+        self.queue.put(task, block=False)
+        self.has_queue_initialized_task = True
+
+    def get_category_file_path(self) -> str:
+        return self.category_file_path
+
+    def get_model_file_path(self) -> str:
+        return self.model_file_path
+
     def get_categories(self):
         return self.categories
+
+    def set_categories(self, categories: CategoriesDict):
+        self.categories = categories
+
+    def get_classifier(self) -> Pipeline:
+        if self.classifier is None:
+            raise ValueError("Classifier not set")
+        return self.classifier
+
+    def get_category_from_subcategory(self, sub_category: str) -> str:
+        if self.categories is None:
+            raise ValueError("Categories not set")
+        type_to_category = {
+            value: key for key, values in self.categories.items() for value in values
+        }
+        return type_to_category.get(sub_category, "Unknown")
+
+    def set_classifier(self, classifier: Pipeline):
+        self.classifier = classifier
 
     def update_categories(self, new_categories):
         self.queue.put(UpdateCategoriesTask(
@@ -160,10 +244,3 @@ class CategorizerManager:
         self.queue.put(None)
         self.consumer_thread.join()
         self.queue.join()
-
-    def _get_category_from_file(self):
-        with self.lock:
-            if os.path.exists(self.category_file_path):
-                with open(self.category_file_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return default_categories

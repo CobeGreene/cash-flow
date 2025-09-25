@@ -6,14 +6,10 @@ import io
 from datetime import datetime
 import logging
 from typing import Any, Union
-import threading
-from transformers import pipeline
 from master_csv_manager import MasterCSVManager
 from categorizer_manager import CategorizerManager
 import json
 
-classifier = pipeline("text-classification",
-                      model="../categorized_transactions/my_model")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +35,7 @@ master_csv_manager = MasterCSVManager(
     )
 )
 
-categorized_manager = CategorizerManager(classifier, master_csv_manager, os.path.join(
+categorized_manager = CategorizerManager(master_csv_manager, os.path.join(
     os.path.abspath(os.path.dirname(__file__)),
     app.config['DATA_FOLDER']))
 
@@ -123,6 +119,13 @@ def train_transactions():
     return jsonify({
     })
 
+@app.route('/update_transactions_categories', methods=['POST'])
+def update_transactions_categories():    
+    data = json.loads(request.data.decode('utf-8'))
+    result = master_csv_manager.update_rows_with_categories(data["rows"])
+    return jsonify({
+        'data': result
+    })
 
 @app.route('/upload', methods=['POST'])
 def upload_csv():
@@ -218,6 +221,7 @@ def not_found(e):
 
 
 if __name__ == '__main__':
+    categorized_manager.add_initialized_task()
     app.run(debug=True, host='0.0.0.0', port=5000)
     print("App Finish")
     categorized_manager.stop()

@@ -9,6 +9,18 @@ type EditChange =
 export const useCategoriesStore = defineStore('categories', () => {
   const categories = ref<{ [key: string]: string[] }>({})
 
+  const allCategories = computed(() => {
+    return Object.keys(categories.value)
+  })
+
+  const allSubCategories = computed(() => {
+    const subs: string[] = []
+    for (const key in categories.value) {
+      subs.push(...categories.value[key])
+    }
+    return subs
+  })
+
   const editCategories = ref<{ [key: string]: string[] }>({})
   const editChanges = ref<{ type: string; change: EditChange }[]>([])
   const incomeEditSubCategories = computed(() => editCategories.value['Income'] || [])
@@ -75,6 +87,8 @@ export const useCategoriesStore = defineStore('categories', () => {
 
   return {
     categories,
+    allCategories,
+    allSubCategories,
     loadCategories,
     updateCategory,
     addSubCategory,

@@ -1,4 +1,10 @@
-import { getAmount, getCategory, getDate, getSubCategory } from '@/store/transactions_store'
+import {
+  getAmount,
+  getCategory,
+  getDate,
+  getSubCategory,
+  type Transaction,
+} from '@/store/transactions_store'
 
 export interface BreakdownType {
   name: string
@@ -23,63 +29,43 @@ export interface ScoreCard {
   percentageIncreaseFromPrevious: number | undefined
 }
 
-export function grocerySliceFunc(row: string[]): Breakdown {
-  if (getCategory(row) === 'Groceries') {
-    return { name: getSubCategory(row), value: -1 * getAmount(row) }
+export function createSliceFunc(
+  category: string | null,
+  subCategory: string | null,
+  invertAmount = true,
+): (row: Transaction) => Breakdown {
+  return (row: Transaction): Breakdown => {
+    if (
+      (category === null || getCategory(row) === category) &&
+      (subCategory === null || getSubCategory(row) === subCategory)
+    ) {
+      const amount = getAmount(row)
+      return {
+        name: subCategory || category || 'Other',
+        value: invertAmount ? -1 * amount : amount,
+      }
+    }
   }
-  return undefined
 }
 
-export function investingSliceFunc(row: string[]): Breakdown {
-  if (getCategory(row) === 'Investing' && getSubCategory(row) === 'Charles Schwab') {
-    return { name: getSubCategory(row), value: -1 * getAmount(row) }
+export const investingSliceFunc = createSliceFunc('Investing', null, true)
+
+const nonExpensesCategories = new Set(['Investing', 'Income', 'Ignore'])
+
+export function expensesSliceFunc(row: Transaction): Breakdown {
+  if (nonExpensesCategories.has(getCategory(row))) {
+    return undefined
   }
-  return undefined
+  return { name: getCategory(row), value: -1 * getAmount(row) }
 }
 
-const expensesCategories = new Set([
-  'Groceries',
-  'Car',
-  'Home',
-  'Insurance',
-  'Medical',
-  'Miscellaneous',
-  'Travel',
-  'Vacation',
-])
+export const incomeSliceFunc = createSliceFunc('Income', null, false)
 
-export function expensesSliceFunc(row: string[]): Breakdown {
-  if (expensesCategories.has(getCategory(row))) {
-    return { name: getCategory(row), value: -1 * getAmount(row) }
-  }
-  return undefined
-}
-
-export function incomeSliceFunc(row: string[]): Breakdown {
-  const category = getCategory(row)
-  const subCategory = getSubCategory(row)
-  if (getCategory(row) === 'Taxes') {
-    return { name: 'Work', value: -1 * getAmount(row) }
-  } else if (
-    (category === 'Bank' && subCategory === 'Cash Back Rewards') ||
-    (category === 'Investing' && subCategory !== 'Charles Schwab') ||
-    category === 'Work'
-  ) {
-    return { name: category, value: getAmount(row) }
-  }
-  return undefined
-}
-
-export function miscellaneousSliceFunc(row: string[]): Breakdown {
-  if (getCategory(row) === 'Miscellaneous') {
-    return { name: getSubCategory(row), value: -1 * getAmount(row) }
-  }
-  return undefined
-}
+export const miscellaneousSliceFunc = createSliceFunc('Miscellaneous', null, true)
 
 export function breakdown(
-  transactions: string[][],
-  sliceFunc: (row: string[]) => { name: string; value: number } | undefined,
+  transactions: Transaction[],
+  sliceFunc: (row: Transaction) => { name: string; value: number } | undefined,
   isWithinTimeFrame: (date: Date) => boolean,
 ): { name: string; value: number }[] {
   const data: { [key: string]: { value: number; name: string } } = {}
@@ -98,8 +84,8 @@ export function breakdown(
 }
 
 export function totalBreakdownAmount(
-  transactions: string[][],
-  sliceFunc: (row: string[]) => { name: string; value: number } | undefined,
+  transactions: Transaction[],
+  sliceFunc: (row: Transaction) => { name: string; value: number } | undefined,
   isWithinTimeFrame: (date: Date) => boolean,
 ): number {
   return breakdown(transactions, sliceFunc, isWithinTimeFrame)
@@ -108,8 +94,8 @@ export function totalBreakdownAmount(
 }
 
 export function scoreCard(
-  transactions: string[][],
-  sliceFunc: (row: string[]) => { name: string; value: number } | undefined,
+  transactions: Transaction[],
+  sliceFunc: (row: Transaction) => { name: string; value: number } | undefined,
   timeFrameFunctions: ScoreCardTimeFrameFunctions,
 ): ScoreCard {
   const previous = totalBreakdownAmount(transactions, sliceFunc, timeFrameFunctions.previous)

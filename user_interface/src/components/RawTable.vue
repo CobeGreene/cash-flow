@@ -7,11 +7,14 @@ import {
 	getCategory,
 	getSubCategory,
 } from '@/store/transactions_store'
+import { useCategoriesStore } from '@/store/categories_store'
 import { storeToRefs } from 'pinia'
 import { ref, computed, watch } from 'vue'
 
 const transactionsStore = useTransactionsStore()
+const categoriesStore = useCategoriesStore()
 const { transactions } = storeToRefs(transactionsStore)
+const { allCategories, allSubCategories } = storeToRefs(categoriesStore)
 
 const searchQuery = ref('')
 const debouncedQuery = ref('')
@@ -23,24 +26,6 @@ const maxDate = ref('')
 const selectedCategories = ref<string[]>([])
 const selectedSubCategories = ref<string[]>([])
 const editAll = ref(false)
-
-// Get unique categories and sub-categories from all transactions
-const allCategories = computed(() => {
-	const set = new Set<string>()
-	transactions.value.forEach((item) => {
-		const cat = getCategory(item)
-		if (cat !== undefined && cat !== null) set.add(cat)
-	})
-	return Array.from(set).sort()
-})
-const allSubCategories = computed(() => {
-	const set = new Set<string>()
-	transactions.value.forEach((item) => {
-		const sub = getSubCategory(item)
-		if (sub !== undefined && sub !== null) set.add(sub)
-	})
-	return Array.from(set).sort()
-})
 
 watch(searchQuery, (val) => {
 	if (debounceTimeout) clearTimeout(debounceTimeout)
@@ -130,6 +115,16 @@ function toggleEditAll() {
 	if (!editAll.value) {
 		selectedRows.value.clear()
 	}
+}
+
+function bulkUpdateSubCategory(newSubCategory: string) {
+	// const indices = editAll.value
+	// 	? filteredTransactions.value.map((_, idx) => idx)
+	// 	: Array.from(selectedRows.value)
+	// transactionsStore.bulkUpdateSubCategory(indices, newSubCategory)
+	// if (!editAll.value) {
+	// 	selectedRows.value.clear()
+	// }
 }
 
 watch(filteredTransactions, () => {
@@ -241,12 +236,7 @@ watch(filteredTransactions, () => {
 								<a
 									href="#"
 									class="dropdown-item"
-									@click.prevent="
-										transactionsStore.bulkUpdateSubCategory(
-											Array.from(selectedRows),
-											sub
-										)
-									"
+									@click.prevent="bulkUpdateSubCategory(sub)"
 								>
 									{{ sub }}
 								</a>

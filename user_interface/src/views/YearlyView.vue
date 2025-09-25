@@ -3,19 +3,12 @@ import { storeToRefs } from 'pinia'
 import PieChart from '@/components/PieChart.vue'
 import ScoreCard from '@/components/ScoreCard.vue'
 import LineChart from '@/components/LineChart.vue'
-import {
-	getAmount,
-	getCategory,
-	getDate,
-	getSubCategory,
-	useTransactionsStore,
-} from '@/store/transactions_store'
+import { useTransactionsStore } from '@/store/transactions_store'
 import { computed, ref, watch } from 'vue'
 import moment from 'moment'
 import {
 	breakdown,
 	expensesSliceFunc,
-	grocerySliceFunc,
 	incomeSliceFunc,
 	investingSliceFunc,
 	miscellaneousSliceFunc,
@@ -48,22 +41,8 @@ function isNextYearAsCurrentDate(date: Date) {
 	return nextDate.getFullYear() === date.getFullYear()
 }
 
-const groceryBreakdown = computed(() => {
-	return breakdown(transactions.value, grocerySliceFunc, (date: Date) =>
-		isSameYearAsCurrentDate(date, currentDate.value || new Date())
-	)
-})
-
 const expensesScoreCard = computed(() => {
 	return scoreCard(transactions.value, expensesSliceFunc, {
-		current: (date) => isSameYearAsCurrentDate(date, currentDate.value || new Date()),
-		next: isNextYearAsCurrentDate,
-		previous: isPreviousYearAsCurrentDate,
-	})
-})
-
-const groceryScoreCard = computed(() => {
-	return scoreCard(transactions.value, grocerySliceFunc, {
 		current: (date) => isSameYearAsCurrentDate(date, currentDate.value || new Date()),
 		next: isNextYearAsCurrentDate,
 		previous: isPreviousYearAsCurrentDate,
@@ -166,7 +145,6 @@ const incomeExpensesBreakdown = computed(() => {
 	</div>
 	<div class="charts">
 		<PieChart :title="'Expenses'" :data="expensesBreakdown"></PieChart>
-		<PieChart :title="'Groceries'" :data="groceryBreakdown"></PieChart>
 		<PieChart :title="'Miscellaneous'" :data="miscellaneousBreakdown"></PieChart>
 	</div>
 	<div class="scorecards">
@@ -176,14 +154,6 @@ const incomeExpensesBreakdown = computed(() => {
 			:previous-title="'Previous Year'"
 			:next-title="'Next Year'"
 			:score-card="expensesScoreCard"
-		>
-		</ScoreCard>
-		<ScoreCard
-			:title="'Groceries'"
-			:current-title="'Current Year'"
-			:previous-title="'Previous Year'"
-			:next-title="'Next Year'"
-			:score-card="groceryScoreCard"
 		>
 		</ScoreCard>
 		<ScoreCard

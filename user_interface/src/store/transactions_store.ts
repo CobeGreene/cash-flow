@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-type Transaction = (string | number | Date)[]
+export type Transaction = (string | number | Date)[]
 
 // Transaction is row with the following data in this format
 // 0: Date
