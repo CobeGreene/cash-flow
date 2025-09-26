@@ -1,2 +1,3 @@
 data/
-categorized_transactions/
+server/__pycache__/
+server/.vscode/

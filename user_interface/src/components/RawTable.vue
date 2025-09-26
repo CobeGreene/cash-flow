@@ -183,6 +183,10 @@ function bulkUpdateSubCategory(newSubCategory: string) {
 	})
 }
 
+http?.post('train').then((data) => {
+	console.log('Training started:', data)
+})
+
 watch(filteredTransactions, () => {
 	currentPage.value = 1
 	selectedRows.value.clear()
@@ -264,6 +268,7 @@ watch(filteredTransactions, () => {
 					</ul>
 				</div>
 			</div>
+			<button class="btn btn-outline-success" type="button" @click="train()">Train</button>
 		</div>
 	</div>
 

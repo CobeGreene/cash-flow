@@ -224,6 +224,6 @@ def not_found(e):
 
 if __name__ == '__main__':
     categorized_manager.add_initialized_task()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)
     print("App Finish")
     categorized_manager.stop()

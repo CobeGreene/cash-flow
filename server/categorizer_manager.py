@@ -7,7 +7,9 @@ from master_csv_manager import MasterCSVManager, TransactionRows
 from datasets import load_dataset
 import os
 import json
-from transformers import AutoModelForSequenceClassification
+import evaluate
+import numpy as np
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, TrainingArguments, Trainer, DataCollatorWithPadding
 from datasets import load_dataset
 from transformers import pipeline, Pipeline
 
@@ -30,7 +32,8 @@ class CategorizedTask:
                     type_label = first_result['label']
             category = "unknown"
             if (type_label):
-                category = self.categorizer_manager.get_category_from_subcategory(type_label)
+                category = self.categorizer_manager.get_category_from_subcategory(
+                    type_label)
             row['Category'] = category
             row['Sub Category'] = type_label if type_label else "Unknown"
         self.master_csv_manager.update_rows_with_categories(
@@ -102,10 +105,10 @@ class UpdateCategoriesTask:
 
 
 class TrainTask:
-    def __init__(self, classifier, data_folder: str, master_csv_manager: MasterCSVManager):
-        self.classifier = classifier
-        self.data_folder = data_folder
+    def __init__(self, categorizer_manager: 'CategorizerManager', master_csv_manager: MasterCSVManager, lock: threading.Lock):
+        self.categorizer_manager = categorizer_manager
         self.master_csv_manager = master_csv_manager
+        self.lock = lock
 
     def doWork(self):
         print("Start work on training")
@@ -117,6 +120,66 @@ class TrainTask:
             'Date', 'Transaction',
             'Memo', 'Amount', 'Category',
         ])
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            "distilbert/distilbert-base-uncased")
+
+        def preprocess_function(examples):
+            return tokenizer(examples["text"], truncation=True)
+
+        tokenized_imdb = dataset.map(preprocess_function, batched=True)
+
+        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+        accuracy = evaluate.load("accuracy")
+
+        label_to_id = self.categorizer_manager.get_label_to_id()
+        id_to_label = self.categorizer_manager.get_id_to_label()
+        all_sub_categories = self.categorizer_manager.get_all_sub_categories()
+
+        def encode_labels(example):
+            example['label'] = label_to_id[example['label']]
+            return example
+
+        tokenized_imdb = tokenized_imdb.map(encode_labels)
+
+        def compute_metrics(eval_pred):
+            predictions, labels = eval_pred
+            predictions = np.argmax(predictions, axis=1)
+            return accuracy.compute(predictions=predictions, references=labels)
+
+        small_train_dataset = tokenized_imdb["train"].shuffle(seed=42)
+        small_eval_dataset = tokenized_imdb["train"].shuffle(
+            seed=42).select(range(min(100, len(tokenized_imdb["train"]))))
+
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "distilbert/distilbert-base-uncased", num_labels=len(all_sub_categories), id2label=id_to_label, label2id=label_to_id
+        )
+
+        with self.lock:
+            training_args = TrainingArguments(
+                output_dir=self.categorizer_manager.get_training_file_path(),
+                learning_rate=2e-5,
+                per_device_train_batch_size=16,
+                per_device_eval_batch_size=16,
+                num_train_epochs=15,
+                weight_decay=0.01,
+                eval_strategy="epoch",
+                save_strategy="epoch",
+            )
+
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=small_train_dataset,
+                eval_dataset=small_eval_dataset,
+                tokenizer=tokenizer,
+                data_collator=data_collator,
+                compute_metrics=compute_metrics,
+            )
+
+            trainer.train()
+            trainer.save_model(self.categorizer_manager.get_model_file_path())
 
         print("Finish work on training")
 
@@ -173,6 +236,8 @@ class CategorizerManager:
             data_folder, 'category_data.json')
         self.model_file_path = os.path.join(
             data_folder, 'classifier_model')
+        self.training_file_path = os.path.join(
+            data_folder, 'training_file_path')
         self.categories: Union[CategoriesDict, None] = None
         self.classifier: Union[Pipeline, None] = None
         self.lock = threading.Lock()
@@ -183,8 +248,8 @@ class CategorizerManager:
         self.queue.put(task, block=False)
 
     def add_train_task(self):
-        task = TrainTask(self.classifier, self.data_folder,
-                         self.master_csv_manager)
+        task = TrainTask(self,
+                         self.master_csv_manager, self.lock)
         self.queue.put(task, block=False)
 
     def add_initialized_task(self):
@@ -200,6 +265,9 @@ class CategorizerManager:
 
     def get_model_file_path(self) -> str:
         return self.model_file_path
+
+    def get_training_file_path(self) -> str:
+        return self.training_file_path
 
     def get_categories(self):
         return self.categories
@@ -219,6 +287,27 @@ class CategorizerManager:
             value: key for key, values in self.categories.items() for value in values
         }
         return type_to_category.get(sub_category, "Unknown")
+
+    def get_label_to_id(self) -> dict[str, int]:
+        if self.categories is None:
+            raise ValueError("Categories not set")
+        all_categories = list(chain.from_iterable(
+            [category_types for _category, category_types in self.categories.items()]))
+        return {label: i for i, label in enumerate(all_categories)}
+
+    def get_id_to_label(self) -> dict[int, str]:
+        if self.categories is None:
+            raise ValueError("Categories not set")
+        all_categories = list(chain.from_iterable(
+            [category_types for _category, category_types in self.categories.items()]))
+        return {i: label for i, label in enumerate(all_categories)}
+
+    def get_all_sub_categories(self) -> list[str]:
+        if self.categories is None:
+            raise ValueError("Categories not set")
+        all_sub_categories = list(chain.from_iterable(
+            [category_types for _category, category_types in self.categories.items()]))
+        return all_sub_categories
 
     def set_classifier(self, classifier: Pipeline):
         self.classifier = classifier
