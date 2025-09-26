@@ -1,4 +1,5 @@
 data/
 server/__pycache__/
 server/.vscode/
-
+test_data/.vscode/
+test_data/test/
