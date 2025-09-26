@@ -122,9 +122,11 @@ def train_transactions():
 @app.route('/update_transactions_categories', methods=['POST'])
 def update_transactions_categories():    
     data = json.loads(request.data.decode('utf-8'))
-    result = master_csv_manager.update_rows_with_categories(data["rows"])
+    master_csv_manager.update_rows_with_categories(data["rows"])
+    result = master_csv_manager.read_master_csv_list()
     return jsonify({
-        'data': result
+        'columns': result['columns'],
+        'data': result['rows']
     })
 
 @app.route('/upload', methods=['POST'])

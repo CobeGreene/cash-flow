@@ -6,17 +6,26 @@ import {
 	getAmount,
 	getCategory,
 	getSubCategory,
+	getMemo,
+	getTransaction,
+	getOriginalAmount,
+	getOriginalDate,
+	type Transaction,
 } from '@/store/transactions_store'
 import { useCategoriesStore } from '@/store/categories_store'
 import { storeToRefs } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, inject } from 'vue'
+import { HttpService } from '@/service/http-service'
+import moment from 'moment'
 
+const http = inject<HttpService>('http')
 const transactionsStore = useTransactionsStore()
 const categoriesStore = useCategoriesStore()
 const { transactions } = storeToRefs(transactionsStore)
 const { allCategories, allSubCategories } = storeToRefs(categoriesStore)
 
 const searchQuery = ref('')
+const searchSubCategoriesQuery = ref('')
 const debouncedQuery = ref('')
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 const searchMode = ref('contains') // 'contains' or 'not-contains'
@@ -96,6 +105,7 @@ const paginatedTransactions = computed(() => {
 
 function goToPage(page: number) {
 	if (page >= 1 && page <= pageCount.value) {
+		selectedRows.value.clear()
 		currentPage.value = page
 	}
 }
@@ -118,13 +128,59 @@ function toggleEditAll() {
 }
 
 function bulkUpdateSubCategory(newSubCategory: string) {
-	// const indices = editAll.value
-	// 	? filteredTransactions.value.map((_, idx) => idx)
-	// 	: Array.from(selectedRows.value)
-	// transactionsStore.bulkUpdateSubCategory(indices, newSubCategory)
-	// if (!editAll.value) {
-	// 	selectedRows.value.clear()
-	// }
+	const transactionsToUpdates: {
+		Date: string
+		Name: string
+		Memo: string
+		Transaction: string
+		Amount: string
+		Category: string
+		'Sub Category': string
+	}[] = []
+	const newCategory = categoriesStore.getCategoryOfSubCategory(newSubCategory)
+	if (!newCategory) {
+		alert(`Sub-category "${newSubCategory}" does not have a corresponding category.`)
+		return
+	}
+	if (editAll.value) {
+		paginatedTransactions.value.forEach((t) => {
+			if (getSubCategory(t) !== newSubCategory) {
+				transactionsToUpdates.push({
+					Date: getOriginalDate(t),
+					Name: getName(t),
+					Memo: getMemo(t),
+					Transaction: getTransaction(t),
+					Amount: getOriginalAmount(t),
+					Category: newCategory,
+					'Sub Category': newSubCategory,
+				})
+			}
+		})
+	} else {
+		selectedRows.value.forEach((idx) => {
+			const t = filteredTransactions.value[idx]
+			if (t && getSubCategory(t) !== newSubCategory) {
+				transactionsToUpdates.push({
+					Date: getOriginalDate(t),
+					Name: getName(t),
+					Memo: getMemo(t),
+					Transaction: getTransaction(t),
+					Amount: getOriginalAmount(t),
+					Category: newCategory,
+					'Sub Category': newSubCategory,
+				})
+			}
+		})
+	}
+	if (transactionsToUpdates.length === 0) {
+		alert('No transactions to update.')
+		return
+	}
+	http?.post('update_transactions_categories', {
+		rows: transactionsToUpdates,
+	}).then((data) => {
+		transactionsStore.loadTransactions(data['data'])
+	})
 }
 
 watch(filteredTransactions, () => {
@@ -181,7 +237,7 @@ watch(filteredTransactions, () => {
 			</div>
 
 			<div class="dropdown-label">
-				<span>Sub-Category:</span>
+				<span>Sub Category:</span>
 				<div class="dropdown">
 					<button
 						class="btn btn-outline-secondary dropdown-toggle"
@@ -232,15 +288,32 @@ watch(filteredTransactions, () => {
 							Edit Sub-Category
 						</button>
 						<ul class="dropdown-menu">
-							<li v-for="sub in allSubCategories" :key="sub">
-								<a
-									href="#"
-									class="dropdown-item"
-									@click.prevent="bulkUpdateSubCategory(sub)"
-								>
-									{{ sub }}
-								</a>
-							</li>
+							<input
+								v-model="searchSubCategoriesQuery"
+								type="text"
+								class="form-control"
+								placeholder="Search by name..."
+							/>
+							<div class="dropdown-menu-items">
+								<template v-for="sub in allSubCategories" :key="sub">
+									<li
+										v-if="
+											!searchSubCategoriesQuery ||
+											sub
+												.toLowerCase()
+												.includes(searchSubCategoriesQuery.toLowerCase())
+										"
+									>
+										<a
+											href="#"
+											class="dropdown-item"
+											@click.prevent="bulkUpdateSubCategory(sub)"
+										>
+											{{ sub }}
+										</a>
+									</li>
+								</template>
+							</div>
 						</ul>
 					</div>
 					<div v-else>Sub-Category</div>
@@ -336,10 +409,16 @@ watch(filteredTransactions, () => {
 	vertical-align: middle;
 }
 
-.dropdown-menu {
-	max-height: 200px;
+.dropdown-menu .form-control {
+	margin: 5px;
+	width: auto;
+}
+
+.dropdown-menu-items {
+	max-height: 150px;
 	overflow-y: auto;
 }
+
 .table-hover tbody tr:hover {
 	--bs-table-hover-bg: #3d8bfd; /* Your desired hover color */
 }

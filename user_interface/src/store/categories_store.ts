@@ -85,6 +85,15 @@ export const useCategoriesStore = defineStore('categories', () => {
     editChanges.value.push({ type: 'add', change: { subCategory, category } })
   }
 
+  function getCategoryOfSubCategory(subCategory: string): string | null {
+    for (const key in categories.value) {
+      if (categories.value[key].includes(subCategory)) {
+        return key
+      }
+    }
+    return null
+  }
+
   return {
     categories,
     allCategories,
@@ -97,6 +106,7 @@ export const useCategoriesStore = defineStore('categories', () => {
     investmentEditSubCategories,
     expensesEditCategories,
     restoreEditCategories,
+    getCategoryOfSubCategory,
     editChanges,
   }
 })

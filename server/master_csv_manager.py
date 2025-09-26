@@ -69,7 +69,7 @@ class MasterCSVManager:
                 writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
                 writer.writeheader()
                 writer.writerows(existing_rows)
-        return True
+            return existing_rows
 
     def add_rows_to_master_csv(self, new_rows: TransactionRows):
         """Update master CSV file with new rows, deduplicating based on all columns."""
