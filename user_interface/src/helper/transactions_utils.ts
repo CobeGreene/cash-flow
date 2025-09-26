@@ -41,16 +41,16 @@ export function createSliceFunc(
     ) {
       const amount = getAmount(row)
       return {
-        name: subCategory || category || 'Other',
+        name: getSubCategory(row),
         value: invertAmount ? -1 * amount : amount,
       }
     }
   }
 }
 
-export const investingSliceFunc = createSliceFunc('Investing', null, true)
+export const investingSliceFunc = createSliceFunc('Investment', null, true)
 
-const nonExpensesCategories = new Set(['Investing', 'Income', 'Ignore'])
+const nonExpensesCategories = new Set(['Investment', 'Income', 'Ignore'])
 
 export function expensesSliceFunc(row: Transaction): Breakdown {
   if (nonExpensesCategories.has(getCategory(row))) {

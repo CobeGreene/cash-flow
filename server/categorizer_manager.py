@@ -42,11 +42,12 @@ class CategorizedTask:
 
 
 class UpdateCategoriesTask:
-    def __init__(self, new_categories_updates: list[dict], category_file_path: str, lock: threading.Lock, master_csv_manager: MasterCSVManager):
+    def __init__(self, new_categories_updates: list[dict], category_file_path: str, lock: threading.Lock, master_csv_manager: MasterCSVManager, categorizer_manager: 'CategorizerManager'):
         self.new_categories_updates = new_categories_updates
         self.category_file_path = category_file_path
         self.master_csv_manager = master_csv_manager
         self.lock = lock
+        self.categorizer_manager = categorizer_manager
 
     def doWork(self):
         print("Start updating categories", self.new_categories_updates)
@@ -101,6 +102,7 @@ class UpdateCategoriesTask:
             # Write updated categories back to file
             with open(self.category_file_path, 'w', encoding='utf-8') as f:
                 json.dump(categories, f, indent=4)
+                self.categorizer_manager.set_categories(categories)
         print("Finish updating categories")
 
 
@@ -180,6 +182,10 @@ class TrainTask:
 
             trainer.train()
             trainer.save_model(self.categorizer_manager.get_model_file_path())
+
+            classifier = pipeline("text-classification",
+                                      model=self.categorizer_manager.get_model_file_path())
+            self.categorizer_manager.set_classifier(classifier)            
 
         print("Finish work on training")
 
@@ -314,7 +320,7 @@ class CategorizerManager:
 
     def update_categories(self, new_categories):
         self.queue.put(UpdateCategoriesTask(
-            new_categories, self.category_file_path, self.lock, self.master_csv_manager), block=False)
+            new_categories, self.category_file_path, self.lock, self.master_csv_manager, self), block=False)
         return True
 
     def categorized_consumer(self, queue):
