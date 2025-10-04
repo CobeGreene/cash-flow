@@ -328,6 +328,7 @@ class CategorizerManager:
         while True:
             item = queue.get()
             if item is None:
+                queue.task_done()
                 break
             categorized_task = cast(CategorizedTask, item)
             categorized_task.doWork()

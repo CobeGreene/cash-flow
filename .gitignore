@@ -1,5 +1,8 @@
 data/
 server/__pycache__/
 server/.vscode/
+server/build/
+server/dist/
+server/.conda/
 test_data/.vscode/
 test_data/test/

@@ -21,8 +21,8 @@ CORS(app)
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['DATA_FOLDER'] = os.path.join(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))), 'data')
+app.config['DATA_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))), 'data')
 app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
 # Create uploads directory if it doesn't exist

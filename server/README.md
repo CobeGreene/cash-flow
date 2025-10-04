@@ -124,3 +124,41 @@ You can modify the following settings in `app.py`:
 - `MAX_CONTENT_LENGTH`: Maximum file size (default: 16MB)
 - `UPLOAD_FOLDER`: Directory for storing files (default: 'uploads')
 - `ALLOWED_EXTENSIONS`: Allowed file extensions (default: {'csv'})
+
+## Developing
+
+Create a conada workspace, activate, and run
+
+```  sh
+pip install -r requirements.txt
+```
+
+Then run with
+
+``` sh
+python app.py
+```
+
+## Building Binary
+
+Clean the previous build
+
+``` sh
+python -m PyInstaller --clean app.py
+```
+
+Build the exe (note this is not working at the moment)
+
+
+``` sh
+python -m PyInstaller app.spec
+``` 
+
+## Notes
+
+I originally did the following command to create the spec. It hit a recursion limit and recommend to
+use the spec. 
+
+``` sh
+python -m PyInstaller --onefile app.py
+```
