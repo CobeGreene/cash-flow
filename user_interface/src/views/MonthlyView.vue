@@ -13,6 +13,8 @@ import {
 	investingSliceFunc,
 	miscellaneousSliceFunc,
 	scoreCard,
+	restaurantsSliceFunc,
+	homeSliceFunc,
 	totalBreakdownAmount,
 } from '@/helper/transactions_utils'
 
@@ -95,8 +97,10 @@ const addMonth = () => {
 const incomeExpensesBreakdown = computed(() => {
 	const dates = ['Category']
 	const income = ['Income'] as (string | number)[]
+	const home = ['Home'] as (string | number)[]
 	const expenses = ['Expenses'] as (string | number)[]
 	const investing = ['Investing'] as (string | number)[]
+	const restaurants = ['Restaurants'] as (string | number)[]
 
 	const startDate = new Date(currentDate?.value || new Date())
 	startDate.setMonth(startDate.getMonth() - 2)
@@ -120,11 +124,21 @@ const incomeExpensesBreakdown = computed(() => {
 				isSameMonthAsCurrentDate(date, startDate)
 			).toFixed(2)
 		)
+		home.push(
+			totalBreakdownAmount(transactions.value, homeSliceFunc, (date: Date) =>
+				isSameMonthAsCurrentDate(date, startDate)
+			).toFixed(2)
+		)
+		restaurants.push(
+			totalBreakdownAmount(transactions.value, restaurantsSliceFunc, (date: Date) =>
+				isSameMonthAsCurrentDate(date, startDate)
+			).toFixed(2)
+		)
 
 		startDate.setMonth(startDate.getMonth() + 1)
 	}
 
-	return [dates, income, expenses, investing]
+	return [dates, income, expenses, investing, home, restaurants]
 })
 </script>
 

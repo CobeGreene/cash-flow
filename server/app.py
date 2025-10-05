@@ -1,3 +1,4 @@
+import argparse
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -18,11 +19,14 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+parser = argparse.ArgumentParser(description="Server for a cash flow app")
+parser.add_argument("--data_folder", type=str, help="Directory of data folder", required=True)
+
+args = parser.parse_args()
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['DATA_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))), 'data')
+app.config['DATA_FOLDER'] = args.data_folder
 app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
 # Create uploads directory if it doesn't exist

@@ -5,6 +5,7 @@ const emit = defineEmits(['editClick', 'cancelEdit', 'addCategory'])
 
 const props = defineProps<{
 	isEditing?: boolean
+	label: string
 }>()
 
 const newCategoryName = ref<string>('')
@@ -27,7 +28,7 @@ function handleCancelEdit() {
 	<div class="d-inline-flex align-items-center me-2 mb-2 custom-chip-container">
 		<template v-if="!props.isEditing">
 			<span @click="handleEditClick()" class="badge rounded-pill text-bg-success p-2 me-1">
-				Add Sub-Category
+				{{ props.label }}
 			</span>
 		</template>
 		<template v-else>

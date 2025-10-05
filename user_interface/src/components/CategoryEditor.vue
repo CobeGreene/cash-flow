@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { ref, computed, inject } from 'vue'
 import { HttpService } from '@/service/http-service'
 import CategoryPill from '@/components/CategoryPill.vue'
+import AddCategoryPill from '@/components/AddCategoryPill.vue'
 import AddSubCategoryPill from '@/components/AddSubCategoryPill.vue'
 
 const categoriesStore = useCategoriesStore()
@@ -38,7 +39,7 @@ function addingSubCategory(category: string | null) {
 	addingCategory.value = category
 }
 
-function addSubCategory(category: string, subCategory: string) {
+function addSubCategory(category: string, subCategory: string | null) {
 	addingCategory.value = null
 	editingCategory.value = null
 	categoriesStore.addSubCategory(category, subCategory)
@@ -80,6 +81,7 @@ function saveCategories() {
 			/>
 			<AddSubCategoryPill
 				:is-editing="addingCategory === 'Income'"
+				:label="'Add Sub-Category'"
 				@add-category="addSubCategory('Income', $event)"
 				@cancel-edit="addingSubCategory(null)"
 				@edit-click="addingSubCategory('Income')"
@@ -100,6 +102,7 @@ function saveCategories() {
 			/>
 			<AddSubCategoryPill
 				:is-editing="addingCategory === 'Investment'"
+				:label="'Add Sub-Category'"
 				@add-category="addSubCategory('Investment', $event)"
 				@cancel-edit="addingSubCategory(null)"
 				@edit-click="addingSubCategory('Investment')"
@@ -122,12 +125,22 @@ function saveCategories() {
 				/>
 				<AddSubCategoryPill
 					:is-editing="addingCategory === key"
+					:label="'Add Sub-Category'"
 					@add-category="addSubCategory(String(key), $event)"
 					@cancel-edit="addingSubCategory(null)"
 					@edit-click="addingSubCategory(String(key))"
 				/>
 			</div>
 		</template>
+		<div class="d-flex flex-wrap gap-2 mt-2">
+			<AddSubCategoryPill
+				:is-editing="addingCategory === 'New Category'"
+				:label="'Add Category'"
+				@add-category="addSubCategory($event, null)"
+				@cancel-edit="addingSubCategory(null)"
+				@edit-click="addingSubCategory('New Category')"
+			/>
+		</div>
 		<hr />
 		<h3>Ignore</h3>
 		<div class="d-flex flex-wrap gap-2">
@@ -143,6 +156,7 @@ function saveCategories() {
 			/>
 			<AddSubCategoryPill
 				:is-editing="addingCategory === 'Ignore'"
+				:label="'Add Sub-Category'"
 				@add-category="addSubCategory('Ignore', $event)"
 				@cancel-edit="addingSubCategory(null)"
 				@edit-click="addingSubCategory('Ignore')"

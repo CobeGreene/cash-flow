@@ -226,13 +226,14 @@ watch(filteredTransactions, () => {
 						class="btn btn-outline-secondary dropdown-toggle"
 						type="button"
 						data-bs-toggle="dropdown"
+						data-bs-auto-close="outside"
 						aria-expanded="false"
 					>
 						{{
 							selectedCategories.length === 0 ? 'All' : selectedCategories.join(', ')
 						}}
 					</button>
-					<ul class="dropdown-menu">
+					<ul class="dropdown-menu dropdown-menu-items">
 						<li v-for="cat in allCategories" :key="cat">
 							<a href="#" class="dropdown-item" @click.prevent="toggleCategory(cat)">
 								<span v-if="selectedCategories.includes(cat)">✔ </span>{{ cat }}
@@ -249,6 +250,7 @@ watch(filteredTransactions, () => {
 						class="btn btn-outline-secondary dropdown-toggle"
 						type="button"
 						data-bs-toggle="dropdown"
+						data-bs-auto-close="outside"
 						aria-expanded="false"
 					>
 						{{
@@ -257,7 +259,7 @@ watch(filteredTransactions, () => {
 								: selectedSubCategories.join(', ')
 						}}
 					</button>
-					<ul class="dropdown-menu">
+					<ul class="dropdown-menu dropdown-menu-items">
 						<li v-for="sub in allSubCategories" :key="sub">
 							<a
 								href="#"
@@ -426,6 +428,7 @@ watch(filteredTransactions, () => {
 .dropdown-menu-items {
 	max-height: 150px;
 	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .table-hover tbody tr:hover {

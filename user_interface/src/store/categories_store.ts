@@ -11,7 +11,7 @@ export const useCategoriesStore = defineStore('categories', () => {
 
   const allCategories = computed(() => {
     console.log('Categories:', categories.value)
-    return Object.keys(categories.value)
+    return Object.keys(categories.value).sort()
   })
 
   const allSubCategories = computed(() => {
@@ -19,7 +19,7 @@ export const useCategoriesStore = defineStore('categories', () => {
     for (const key in categories.value) {
       subs.push(...categories.value[key])
     }
-    return subs
+    return subs.sort()
   })
 
   const editCategories = ref<{ [key: string]: string[] }>({})

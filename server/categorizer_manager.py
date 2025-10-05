@@ -96,7 +96,7 @@ class UpdateCategoriesTask:
                     sub_cat = edit["change"]["subCategory"]
                     main_cat = edit["change"]["category"]
                     categories.setdefault(main_cat, [])
-                    if sub_cat not in categories[main_cat]:
+                    if sub_cat is not None and sub_cat not in categories[main_cat]:
                         categories[main_cat].append(sub_cat)
 
             # Write updated categories back to file

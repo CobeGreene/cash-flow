@@ -50,6 +50,10 @@ export function createSliceFunc(
 
 export const investingSliceFunc = createSliceFunc('Investment', null, true)
 
+export const homeSliceFunc = createSliceFunc('Home', null, true)
+
+export const restaurantsSliceFunc = createSliceFunc('Miscellaneous', 'Restaurant', true)
+
 const nonExpensesCategories = new Set(['Investment', 'Income', 'Ignore'])
 
 export function expensesSliceFunc(row: Transaction): Breakdown {

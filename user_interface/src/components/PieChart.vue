@@ -18,6 +18,7 @@ const option = computed(() => ({
 		? {
 				text: props.title,
 				left: 'center',
+				padding: [0, 0, 20, 0],
 		  }
 		: {},
 	tooltip: {
@@ -28,7 +29,7 @@ const option = computed(() => ({
 		{
 			name: 'Sources',
 			type: 'pie',
-			radius: '70%',
+			radius: '60%',
 			center: ['50%', '50%'],
 			data: props.data,
 			emphasis: {
