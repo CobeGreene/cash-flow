@@ -17,7 +17,7 @@ const router = createRouter({
       component: MonthlyView,
     },
     {
-      path: '/',
+      path: '/yearly',
       name: 'yearly',
       component: YearlyView,
     },

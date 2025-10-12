@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import { ref, computed, inject } from 'vue'
 import { HttpService } from '@/service/http-service'
 import CategoryPill from '@/components/CategoryPill.vue'
-import AddCategoryPill from '@/components/AddCategoryPill.vue'
 import AddSubCategoryPill from '@/components/AddSubCategoryPill.vue'
 
 const categoriesStore = useCategoriesStore()

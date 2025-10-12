@@ -8,6 +8,7 @@ import {
 	TooltipComponent,
 	ToolboxComponent,
 } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers' // Or SVGRenderer
 import { shallowRef, computed } from 'vue'
 import VChart from 'vue-echarts'
 
@@ -19,6 +20,7 @@ use([
 	TooltipComponent,
 	ToolboxComponent,
 	PieChart,
+	CanvasRenderer,
 ])
 
 const props = defineProps<{
@@ -46,45 +48,20 @@ const option = computed(() => ({
 		triggerEvent: true,
 		tooltip: { show: true, formatter: '' },
 	},
-	series: [
-		{
-			type: 'line',
-			smooth: true,
-			seriesLayoutBy: 'row',
-			emphasis: { focus: 'series' },
-		},
-		{
-			type: 'line',
-			smooth: true,
-			seriesLayoutBy: 'row',
-			emphasis: { focus: 'series' },
-		},
-		{
-			type: 'line',
-			smooth: true,
-			seriesLayoutBy: 'row',
-			emphasis: { focus: 'series' },
-		},
-		{
-			type: 'line',
-			smooth: true,
-			seriesLayoutBy: 'row',
-			emphasis: { focus: 'series' },
-		},
-		{
-			type: 'line',
-			smooth: true,
-			seriesLayoutBy: 'row',
-			emphasis: { focus: 'series' },
-		},
-	],
+	series: props.data.slice(1).map((x) => ({
+		type: 'line',
+		smooth: true,
+		seriesLayoutBy: 'row',
+		name: x[0] as string,
+		emphasis: { focus: 'series' },
+	})),
 }))
 
 const axis = shallowRef('xAxis')
 </script>
 
 <template>
-	<v-chart :option="option" autoresize>
+	<VChart :option="option" autoresize>
 		<template #[`tooltip-${axis}`]="params">
 			{{ axis === 'xAxis' ? 'Year' : 'Value' }}:
 			<b>{{ params.name }}</b>
@@ -106,7 +83,7 @@ const axis = shallowRef('xAxis')
 				</tbody>
 			</table>
 		</template>
-	</v-chart>
+	</VChart>
 </template>
 
 <style scoped>

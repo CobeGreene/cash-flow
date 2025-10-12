@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import * as echarts from 'echarts'
 import { ref, inject } from 'vue'
 import { RouterView } from 'vue-router'
 import { HttpService } from '@/service/http-service'
