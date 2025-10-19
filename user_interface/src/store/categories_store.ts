@@ -10,7 +10,6 @@ export const useCategoriesStore = defineStore('categories', () => {
   const categories = ref<{ [key: string]: string[] }>({})
 
   const allCategories = computed(() => {
-    console.log('Categories:', categories.value)
     return Object.keys(categories.value).sort()
   })
 

@@ -41,6 +41,7 @@ function getFormatYear(date: Date): string {
 		:isNextTimeAsCurrentDate="isNextYearAsCurrentDate"
 		:getNextTime="getNextYear"
 		:getPreviousTime="getPreviousYear"
-		:getFormatTIme="getFormatYear"
+		:getFormatTime="getFormatYear"
+		:timeUnit="'Year'"
 	/>
 </template>

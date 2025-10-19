@@ -47,6 +47,7 @@ function getFormatMonth(date: Date): string {
 		:isNextTimeAsCurrentDate="isNextMonthAsCurrentDate"
 		:getNextTime="getNextMonth"
 		:getPreviousTime="getPreviousMonth"
-		:getFormatTIme="getFormatMonth"
+		:getFormatTime="getFormatMonth"
+		:timeUnit="'Month'"
 	/>
 </template>

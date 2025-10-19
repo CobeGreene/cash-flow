@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { storeToRefs } from 'pinia'
 import PieChart from '@/components/PieChart.vue'
+import TableBreakdown from '@/components/TableBreakdown.vue'
 import ScoreCard from '@/components/ScoreCard.vue'
 import LineChart from '@/components/LineChart.vue'
 import { useTransactionsStore } from '@/store/transactions_store'
@@ -10,11 +11,8 @@ import {
 	breakdown,
 	expensesSliceFunc,
 	incomeSliceFunc,
-	investingSliceFunc,
 	miscellaneousSliceFunc,
 	scoreCard,
-	restaurantsSliceFunc,
-	homeSliceFunc,
 	totalBreakdownAmount,
 	createSliceFunc,
 } from '@/helper/transactions_utils'
@@ -37,7 +35,8 @@ const props = defineProps<{
 	isNextTimeAsCurrentDate: TimeFunction
 	getNextTime: (date: Date) => Date
 	getPreviousTime: (date: Date) => Date
-	getFormatTIme: (date: Date) => string
+	getFormatTime: (date: Date) => string
+	timeUnit: string
 }>()
 
 currentDate.value = maxDate.value || new Date()
@@ -102,7 +101,7 @@ const incomeExpensesBreakdown = computed(() => {
 	const endDate = props.getNextTime(props.getNextTime(currentDate.value))
 
 	while (startDate <= endDate) {
-		result[0].push(props.getFormatTIme(startDate))
+		result[0].push(props.getFormatTime(startDate))
 		for (let i = 0; i < selectedCategories.value.length; ++i) {
 			const category = selectedCategories.value[i]
 			let sliceFunc = createSliceFunc(category, null, true)
@@ -133,7 +132,7 @@ const incomeExpensesBreakdown = computed(() => {
 						<i class="bi bi-caret-left"></i>
 					</button>
 					<button type="button" class="btn btn-outline-secondary month-button">
-						{{ props.getFormatTIme(currentDate) }}
+						{{ props.getFormatTime(currentDate) }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary" @click="addTime">
 						<i class="bi bi-caret-right"></i>
@@ -163,9 +162,20 @@ const incomeExpensesBreakdown = computed(() => {
 		</button>
 	</div>
 	<div class="income-charts">
-		<LineChart :data="incomeExpensesBreakdown"></LineChart>
+		<LineChart :data="incomeExpensesBreakdown" :time-unit="props.timeUnit"></LineChart>
 	</div>
-	<div class="charts">
+	<div class="breakdown-table">
+		<TableBreakdown
+			:current-date="currentDate"
+			:time-unit="props.timeUnit"
+			:get-next-time="props.getNextTime"
+			:get-format-time="props.getFormatTime"
+			:get-previous-time="props.getPreviousTime"
+			:is-same-time-as-current-date="props.isSameTimeAsCurrentDate"
+		>
+		</TableBreakdown>
+	</div>
+	<!-- <div class="charts">
 		<PieChart :title="'Expenses'" :data="expensesBreakdown"></PieChart>
 		<PieChart :title="'Miscellaneous'" :data="miscellaneousBreakdown"></PieChart>
 	</div>
@@ -186,7 +196,7 @@ const incomeExpensesBreakdown = computed(() => {
 			:score-card="miscellaneousScoreCard"
 		>
 		</ScoreCard>
-	</div>
+	</div> -->
 </template>
 
 <style scoped>

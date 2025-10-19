@@ -25,6 +25,7 @@ use([
 
 const props = defineProps<{
 	data: (string | number)[][]
+	timeUnit: string
 }>()
 
 const option = computed(() => ({
@@ -63,7 +64,7 @@ const axis = shallowRef('xAxis')
 <template>
 	<VChart :option="option" autoresize>
 		<template #[`tooltip-${axis}`]="params">
-			{{ axis === 'xAxis' ? 'Year' : 'Value' }}:
+			{{ axis === 'xAxis' ? props.timeUnit : 'Value' }}:
 			<b>{{ params.name }}</b>
 		</template>
 		<template #dataView="option">
