@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import TimeBasedView from '@/components/TimeBasedView.vue'
 import moment from 'moment'
+import { useTransactionsStore } from '@/store/transactions_store'
+import { storeToRefs } from 'pinia'
+
+const store = useTransactionsStore()
+const { maxDate } = storeToRefs(store)
 
 function isSameYearAsCurrentDate(date: Date, currentDate: Date) {
 	return currentDate.getFullYear() === date.getFullYear()
 }
 
-function isPreviousYearAsCurrentDate(date: Date, currentDate: Date) {
-	const previousDate = new Date(currentDate)
-	previousDate.setFullYear(previousDate.getFullYear() - 1)
-	return previousDate.getFullYear() === date.getFullYear()
-}
-function isNextYearAsCurrentDate(date: Date, currentDate: Date) {
-	const nextDate = new Date(currentDate)
-	nextDate.setFullYear(nextDate.getFullYear() + 1)
-	return nextDate.getFullYear() === date.getFullYear()
+function isSameYearAsCurrentYtd(date: Date, currentDate: Date) {
+	if (!maxDate.value) {
+		return isSameYearAsCurrentDate(date, currentDate)
+	}
+	if (!isSameYearAsCurrentDate(date, currentDate)) {
+		return false
+	}
+	if (date.getMonth() > maxDate.value?.getMonth()) {
+		return false
+	}
+	if (date.getMonth() < maxDate.value?.getMonth()) {
+		return true
+	}
+	return date.getDate() <= maxDate.value?.getDate()
 }
 
 function getNextYear(date: Date): Date {
@@ -37,8 +47,7 @@ function getFormatYear(date: Date): string {
 <template>
 	<TimeBasedView
 		:isSameTimeAsCurrentDate="isSameYearAsCurrentDate"
-		:isPreviousTimeAsCurrentDate="isPreviousYearAsCurrentDate"
-		:isNextTimeAsCurrentDate="isNextYearAsCurrentDate"
+		:isSameTimeAsCurrentYtd="isSameYearAsCurrentYtd"
 		:getNextTime="getNextYear"
 		:getPreviousTime="getPreviousYear"
 		:getFormatTime="getFormatYear"

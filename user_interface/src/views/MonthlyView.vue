@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import TimeBasedView from '@/components/TimeBasedView.vue'
 import moment from 'moment'
+import { useTransactionsStore } from '@/store/transactions_store'
+import { storeToRefs } from 'pinia'
+
+const store = useTransactionsStore()
+const { maxDate } = storeToRefs(store)
 
 function isSameMonthAsCurrentDate(date: Date, currentDate: Date) {
 	return (
@@ -9,18 +14,11 @@ function isSameMonthAsCurrentDate(date: Date, currentDate: Date) {
 	)
 }
 
-function isPreviousMonthAsCurrentDate(date: Date, currentDate: Date) {
-	const previousDate = new Date(currentDate)
-	previousDate.setMonth(previousDate.getMonth() - 1)
-	return (
-		previousDate.getMonth() === date.getMonth() &&
-		previousDate.getFullYear() === date.getFullYear()
-	)
-}
-function isNextMonthAsCurrentDate(date: Date, currentDate: Date) {
-	const nextDate = new Date(currentDate)
-	nextDate.setMonth(nextDate.getMonth() + 1)
-	return nextDate.getMonth() === date.getMonth() && nextDate.getFullYear() === date.getFullYear()
+function isSameMonthAsCurrentMtd(date: Date, currentDate: Date) {
+	if (!maxDate.value) {
+		return isSameMonthAsCurrentDate(date, currentDate)
+	}
+	return isSameMonthAsCurrentDate(date, currentDate) && date.getDay() <= maxDate.value?.getDay()
 }
 
 function getNextMonth(date: Date): Date {
@@ -43,8 +41,7 @@ function getFormatMonth(date: Date): string {
 <template>
 	<TimeBasedView
 		:isSameTimeAsCurrentDate="isSameMonthAsCurrentDate"
-		:isPreviousTimeAsCurrentDate="isPreviousMonthAsCurrentDate"
-		:isNextTimeAsCurrentDate="isNextMonthAsCurrentDate"
+		:isSameTimeAsCurrentYtd="isSameMonthAsCurrentMtd"
 		:getNextTime="getNextMonth"
 		:getPreviousTime="getPreviousMonth"
 		:getFormatTime="getFormatMonth"

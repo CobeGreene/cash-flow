@@ -75,9 +75,10 @@ const tableBreakdown = computed(() => {
 	const endDate = props.getNextTime(props.getNextTime(props.currentDate))
 
 	while (startDate <= endDate) {
-		const transactionsInTime = transactions.value.filter((transaction) =>
-			props.isSameTimeAsCurrentDate(getDate(transaction), startDate)
-		)
+		const transactionsInTime = transactions.value.filter((transaction) => {
+			// console.log('Transaction', getDate(transaction), startDate)
+			return props.isSameTimeAsCurrentDate(getDate(transaction), startDate)
+		})
 		const transactionsPreviousTime = transactions.value.filter((transaction) =>
 			props.isSameTimeAsCurrentDate(getDate(transaction), previousStartDate)
 		)

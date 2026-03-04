@@ -22,6 +22,7 @@ const categoriesStore = useCategoriesStore()
 const { transactions, maxDate, hasData } = storeToRefs(store)
 const { allCategories } = storeToRefs(categoriesStore)
 const currentDate = ref<Date>(new Date())
+const isYtd = ref(true)
 const selectedCategories = ref<string[]>(['Income', 'Expenses', 'Investment'])
 const categoriesToSelect = computed(() => {
 	return [...allCategories.value.filter((x) => x !== 'Ignore'), 'Expenses']
@@ -31,8 +32,7 @@ type TimeFunction = (date: Date, currentDate: Date) => boolean
 
 const props = defineProps<{
 	isSameTimeAsCurrentDate: TimeFunction
-	isPreviousTimeAsCurrentDate: TimeFunction
-	isNextTimeAsCurrentDate: TimeFunction
+	isSameTimeAsCurrentYtd: TimeFunction
 	getNextTime: (date: Date) => Date
 	getPreviousTime: (date: Date) => Date
 	getFormatTime: (date: Date) => string
@@ -40,6 +40,12 @@ const props = defineProps<{
 }>()
 
 currentDate.value = maxDate.value || new Date()
+const previousDate = computed(() => {
+	return props.getPreviousTime(currentDate.value)
+})
+const nextDate = computed(() => {
+	return props.getNextTime(currentDate.value)
+})
 
 watch(hasData, (_value, _oldValue) => {
 	currentDate.value = maxDate.value || new Date()
@@ -48,16 +54,16 @@ watch(hasData, (_value, _oldValue) => {
 const expensesScoreCard = computed(() => {
 	return scoreCard(transactions.value, expensesSliceFunc, {
 		current: (date) => props.isSameTimeAsCurrentDate(date, currentDate.value),
-		next: (date) => props.isNextTimeAsCurrentDate(date, currentDate.value),
-		previous: (date) => props.isPreviousTimeAsCurrentDate(date, currentDate.value),
+		next: (date) => props.isSameTimeAsCurrentDate(date, nextDate.value),
+		previous: (date) => props.isSameTimeAsCurrentDate(date, previousDate.value),
 	})
 })
 
 const miscellaneousScoreCard = computed(() => {
 	return scoreCard(transactions.value, miscellaneousSliceFunc, {
 		current: (date) => props.isSameTimeAsCurrentDate(date, currentDate.value),
-		next: (date) => props.isNextTimeAsCurrentDate(date, currentDate.value),
-		previous: (date) => props.isPreviousTimeAsCurrentDate(date, currentDate.value),
+		next: (date) => props.isSameTimeAsCurrentDate(date, nextDate.value),
+		previous: (date) => props.isSameTimeAsCurrentDate(date, previousDate.value),
 	})
 })
 
@@ -112,7 +118,9 @@ const incomeExpensesBreakdown = computed(() => {
 			}
 			result[i + 1].push(
 				totalBreakdownAmount(transactions.value, sliceFunc, (date: Date) =>
-					props.isSameTimeAsCurrentDate(date, startDate)
+					isYtd.value
+						? props.isSameTimeAsCurrentYtd(date, startDate)
+						: props.isSameTimeAsCurrentDate(date, startDate)
 				).toFixed(2)
 			)
 		}
@@ -164,6 +172,10 @@ const incomeExpensesBreakdown = computed(() => {
 	<div class="income-charts">
 		<LineChart :data="incomeExpensesBreakdown" :time-unit="props.timeUnit"></LineChart>
 	</div>
+	<div class="form-check form-switch ms-auto">
+		<input class="form-check-input" type="checkbox" id="ytdSwitch" v-model="isYtd" />
+		<label class="form-check-label" for="ytdSwitch">{{ props.timeUnit }} to Date</label>
+	</div>
 	<div class="breakdown-table">
 		<TableBreakdown
 			:current-date="currentDate"
@@ -171,32 +183,12 @@ const incomeExpensesBreakdown = computed(() => {
 			:get-next-time="props.getNextTime"
 			:get-format-time="props.getFormatTime"
 			:get-previous-time="props.getPreviousTime"
-			:is-same-time-as-current-date="props.isSameTimeAsCurrentDate"
+			:is-same-time-as-current-date="
+				isYtd ? props.isSameTimeAsCurrentYtd : props.isSameTimeAsCurrentDate
+			"
 		>
 		</TableBreakdown>
 	</div>
-	<!-- <div class="charts">
-		<PieChart :title="'Expenses'" :data="expensesBreakdown"></PieChart>
-		<PieChart :title="'Miscellaneous'" :data="miscellaneousBreakdown"></PieChart>
-	</div>
-	<div class="scorecards">
-		<ScoreCard
-			:title="'Expenses'"
-			:current-title="'Current Month'"
-			:previous-title="'Previous Month'"
-			:next-title="'Next Month'"
-			:score-card="expensesScoreCard"
-		>
-		</ScoreCard>
-		<ScoreCard
-			:title="'Miscellaneous'"
-			:current-title="'Current Month'"
-			:previous-title="'Previous Month'"
-			:next-title="'Next Month'"
-			:score-card="miscellaneousScoreCard"
-		>
-		</ScoreCard>
-	</div> -->
 </template>
 
 <style scoped>

@@ -63,11 +63,13 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
   const hasData = computed(() => transactions.value.length !== 0)
 
-  const maxDate = computed(() =>
-    hasData.value
+  const maxDate = computed(() => {
+    const value = hasData.value
       ? new Date(Math.max(...transactions.value.map((row) => getDate(row).getTime())))
-      : undefined,
-  )
+      : undefined
+    console.log('Max Date', value)
+    return value
+  })
 
   const minDate = computed(() =>
     hasData.value
