@@ -69,7 +69,7 @@ const triggerFileUpload = () => {
 <template>
 	<div id="app">
 		<!-- Bootstrap Navbar -->
-		<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+		<nav class="navbar navbar-expand-lg navbar-dark bg-red">
 			<div class="container">
 				<a class="navbar-brand" href="#">Cash Flow</a>
 
@@ -159,5 +159,8 @@ const triggerFileUpload = () => {
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 1000;
+}
+.bg-red {
+	background-color: red !important;
 }
 </style>
