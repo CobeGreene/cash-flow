@@ -256,7 +256,7 @@ const tableBreakdown = computed(() => {
 				</tr>
 				<template v-if="isRowExpanded(row.header.id) && row.children && row.children.length > 0">
 					<template v-for="childRow in row.children" :key="childRow.header.id">
-						<tr v-if="childRow.header.level === 'Sub' || (childRow.header.level === 'Mid' && isRowExpanded(childRow.header.id))">
+						<tr>
 							<td
 								:style="{
 									'text-align': 'left',
