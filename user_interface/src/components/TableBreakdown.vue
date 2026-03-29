@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { getDate, useTransactionsStore } from '@/store/transactions_store'
 import { useCategoriesStore } from '@/store/categories_store'
@@ -53,6 +53,24 @@ type TableRow = {
 
 const expandedRows = ref<Set<string>>(new Set())
 
+// Initialize expandedRows on component mount
+onMounted(() => {
+    // Add top-level categories
+    expandedRows.value.add('Income');
+    expandedRows.value.add('Investment');
+    expandedRows.value.add('Expenses');
+});
+
+// Watch for changes in `categories.value` to set default expanded state for dynamic mid-level categories
+watch(categories, (newCategories) => {
+    // Only set defaults for categories that are not yet in expandedRows
+    for (const category of Object.keys(newCategories)) {
+        if (!['Income', 'Investment', 'Ignore'].includes(category) && !expandedRows.value.has(category)) {
+            expandedRows.value.add(category);
+        }
+    }
+}, { immediate: true }); // immediate: true will run the watcher once on component creation
+
 const toggleRow = (id: string) => {
 	if (expandedRows.value.has(id)) {
 		expandedRows.value.delete(id)
@@ -77,9 +95,7 @@ const tableBreakdown = computed(() => {
 		values: [],
 		children: [],
 	}
-	if (!expandedRows.value.has('Income')) {
-		expandedRows.value.add('Income') // Default to expanded
-	}
+
 	for (const subCategory of categories.value['Income'] || []) {
 		incomeRow.children?.push({
 			header: { id: `Income-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Income', subCategory },
@@ -94,9 +110,7 @@ const tableBreakdown = computed(() => {
 		values: [],
 		children: [],
 	}
-	if (!expandedRows.value.has('Investment')) {
-		expandedRows.value.add('Investment') // Default to expanded
-	}
+
 	for (const subCategory of categories.value['Investment'] || []) {
 		investmentRow.children?.push({
 			header: { id: `Investment-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Investment', subCategory },
@@ -111,9 +125,7 @@ const tableBreakdown = computed(() => {
 		values: [],
 		children: [],
 	}
-	if (!expandedRows.value.has('Expenses')) {
-		expandedRows.value.add('Expenses') // Default to expanded
-	}
+
 	for (const category of Object.keys(categories.value)) {
 		if (['Income', 'Investment', 'Ignore'].includes(category)) {
 			continue
@@ -123,9 +135,7 @@ const tableBreakdown = computed(() => {
 			values: [],
 			children: [],
 		}
-		if (!expandedRows.value.has(category)) {
-			expandedRows.value.add(category) // Default to expanded
-		}
+
 		for (const subCategory of categories.value[category]) {
 			midRow.children?.push({
 				header: { id: `${category}-${subCategory}`, name: subCategory, level: RowLevel.Sub, category, subCategory },
