@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { computed, ref, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { getDate, useTransactionsStore } from '@/store/transactions_store'
 import { useCategoriesStore } from '@/store/categories_store'
-import { computed } from 'vue'
 import {
 	createSliceFunc,
 	expensesSliceFunc,
@@ -30,45 +30,121 @@ enum RowLevel {
 	Mid = 'Mid',
 	Sub = 'Sub',
 }
+
 type RowHeader = {
+	id: string // Unique identifier for the row
 	name: string
 	level: RowLevel
 	category: string | null
 	subCategory: string | null
 }
+
 type RowValue = {
 	value: string
 	percentageChange: string
 	isPositive: boolean
 }
 
+type TableRow = {
+	header: RowHeader
+	values: RowValue[]
+	children?: TableRow[]
+}
+
+const expandedRows = ref<Set<string>>(new Set())
+
+// Initialize expandedRows on component mount
+onMounted(() => {
+    // Add top-level categories
+    expandedRows.value.add('Income');
+    expandedRows.value.add('Investment');
+    expandedRows.value.add('Expenses');
+});
+
+// Watch for changes in `categories.value` to set default expanded state for dynamic mid-level categories
+watch(categories, (newCategories) => {
+    // Only set defaults for categories that are not yet in expandedRows
+    for (const category of Object.keys(newCategories)) {
+        if (!['Income', 'Investment', 'Ignore'].includes(category) && !expandedRows.value.has(category)) {
+            expandedRows.value.add(category);
+        }
+    }
+}, { immediate: true }); // immediate: true will run the watcher once on component creation
+
+const toggleRow = (id: string) => {
+	if (expandedRows.value.has(id)) {
+		expandedRows.value.delete(id)
+	} else {
+		expandedRows.value.add(id)
+	}
+}
+
+const isRowExpanded = (id: string) => expandedRows.value.has(id)
+
 const tableBreakdown = computed(() => {
-	const result = [] as (RowHeader | RowValue)[][]
-	result.push([{ name: props.timeUnit, level: RowLevel.Top, category: null, subCategory: null }])
-	result.push([{ name: 'Income', level: RowLevel.Top, category: 'Income', subCategory: null }])
+	const result: TableRow[] = []
+	const timeUnitRow: TableRow = {
+		header: { id: 'timeUnit', name: props.timeUnit, level: RowLevel.Top, category: null, subCategory: null },
+		values: [],
+	}
+	result.push(timeUnitRow)
+
+	// Income
+	const incomeRow: TableRow = {
+		header: { id: 'Income', name: 'Income', level: RowLevel.Top, category: 'Income', subCategory: null },
+		values: [],
+		children: [],
+	}
+
 	for (const subCategory of categories.value['Income'] || []) {
-		result.push([{ name: subCategory, level: RowLevel.Sub, category: 'Income', subCategory }])
+		incomeRow.children?.push({
+			header: { id: `Income-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Income', subCategory },
+			values: [],
+		})
 	}
-	result.push([
-		{ name: 'Investment', level: RowLevel.Top, category: 'Investment', subCategory: null },
-	])
+	result.push(incomeRow)
+
+	// Investment
+	const investmentRow: TableRow = {
+		header: { id: 'Investment', name: 'Investment', level: RowLevel.Top, category: 'Investment', subCategory: null },
+		values: [],
+		children: [],
+	}
+
 	for (const subCategory of categories.value['Investment'] || []) {
-		result.push([
-			{ name: subCategory, level: RowLevel.Sub, category: 'Investment', subCategory },
-		])
+		investmentRow.children?.push({
+			header: { id: `Investment-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Investment', subCategory },
+			values: [],
+		})
 	}
-	result.push([
-		{ name: 'Expenses', level: RowLevel.Top, category: 'Expenses', subCategory: null },
-	])
+	result.push(investmentRow)
+
+	// Expenses
+	const expensesRow: TableRow = {
+		header: { id: 'Expenses', name: 'Expenses', level: RowLevel.Top, category: 'Expenses', subCategory: null },
+		values: [],
+		children: [],
+	}
+
 	for (const category of Object.keys(categories.value)) {
 		if (['Income', 'Investment', 'Ignore'].includes(category)) {
 			continue
 		}
-		result.push([{ name: category, level: RowLevel.Mid, category, subCategory: null }])
-		for (const subCategory of categories.value[category]) {
-			result.push([{ name: subCategory, level: RowLevel.Sub, category, subCategory }])
+		const midRow: TableRow = {
+			header: { id: category, name: category, level: RowLevel.Mid, category, subCategory: null },
+			values: [],
+			children: [],
 		}
+
+		for (const subCategory of categories.value[category]) {
+			midRow.children?.push({
+				header: { id: `${category}-${subCategory}`, name: subCategory, level: RowLevel.Sub, category, subCategory },
+				values: [],
+			})
+		}
+		expensesRow.children?.push(midRow)
 	}
+	result.push(expensesRow)
 
 	let startDate = props.getPreviousTime(props.getPreviousTime(props.currentDate))
 	let previousStartDate = props.getPreviousTime(startDate)
@@ -76,51 +152,54 @@ const tableBreakdown = computed(() => {
 
 	while (startDate <= endDate) {
 		const transactionsInTime = transactions.value.filter((transaction) => {
-			// console.log('Transaction', getDate(transaction), startDate)
 			return props.isSameTimeAsCurrentDate(getDate(transaction), startDate)
 		})
 		const transactionsPreviousTime = transactions.value.filter((transaction) =>
 			props.isSameTimeAsCurrentDate(getDate(transaction), previousStartDate)
 		)
-		result[0].push({
+
+		timeUnitRow.values.push({
 			value: props.getFormatTime(startDate),
 			isPositive: true,
 			percentageChange: '0',
 		})
-		for (let i = 1; i < result.length; i++) {
-			const rowHeader = result[i][0] as RowHeader
+
+		const fillRowValues = (row: TableRow) => {
 			let inverse = -1
-			let sliceFunc = createSliceFunc(rowHeader.category, rowHeader.subCategory, true)
-			if (rowHeader.category == 'Income') {
+			let sliceFunc = createSliceFunc(row.header.category, row.header.subCategory, true)
+			if (row.header.category == 'Income') {
 				inverse = 1
-				sliceFunc = createSliceFunc(rowHeader.category, rowHeader.subCategory, false)
-			} else if (rowHeader.category == 'Investment') {
+				sliceFunc = createSliceFunc(row.header.category, row.header.subCategory, false)
+			} else if (row.header.category == 'Investment') {
 				inverse = 1
-			} else if (rowHeader.name == 'Expenses') {
+			} else if (row.header.name == 'Expenses') {
 				sliceFunc = expensesSliceFunc
 			}
+
 			const currentValue = totalBreakdownAmount(
 				transactionsInTime,
 				sliceFunc,
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				(_: Date) => true
 			)
 			const previousValue = totalBreakdownAmount(
 				transactionsPreviousTime,
 				sliceFunc,
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				(_: Date) => true
 			)
 			let percentageChange = 0
 			if (previousValue !== 0) {
 				percentageChange = (currentValue - previousValue) / Math.abs(previousValue)
 			}
-			result[i].push({
+			row.values.push({
 				value: currentValue.toFixed(2),
 				percentageChange: (percentageChange * 100).toFixed(2),
 				isPositive: percentageChange * inverse >= 0,
 			})
+
+			row.children?.forEach(fillRowValues)
 		}
+
+		result.slice(1).forEach(fillRowValues) // Skip timeUnitRow
 
 		startDate = props.getNextTime(startDate)
 		previousStartDate = props.getNextTime(previousStartDate)
@@ -128,59 +207,114 @@ const tableBreakdown = computed(() => {
 
 	return result
 })
-
-function getRowHeader(row: (RowValue | RowHeader)[]): RowHeader {
-	return row[0] as RowHeader
-}
-function getRowValue(value: RowValue | RowHeader): string {
-	return (value as RowValue).value
-}
-function getRowPercentageChange(value: RowValue | RowHeader): string {
-	return (value as RowValue).percentageChange
-}
-function getRowValueIsPositive(value: RowValue | RowHeader): boolean {
-	return (value as RowValue).isPositive
-}
 </script>
 
 <template>
 	<table class="table table-striped">
 		<thead>
 			<tr>
-				<th scope="col">Category</th>
-				<th v-for="(header, index) in tableBreakdown[0].slice(1)" :key="index">
-					{{ getRowValue(header) }}
+				<th scope="col">{{ tableBreakdown[0].header.name }}</th>
+				<th v-for="(value, index) in tableBreakdown[0].values" :key="index">
+					{{ value.value }}
 				</th>
 			</tr>
 		</thead>
 		<tbody>
-			<tr v-for="(row, rowIndex) in tableBreakdown.slice(1)" :key="rowIndex">
-				<td
-					:style="{
-						'text-align': 'left',
-						'font-weight':
-							getRowHeader(row).level === 'Top'
-								? 'bold'
-								: getRowHeader(row).level === 'Mid'
-								? '600'
-								: 'normal',
-						'padding-left': getRowHeader(row).level === 'Sub' ? '20px' : '10px',
-					}"
-				>
-					{{ getRowHeader(row).name }}
-				</td>
-				<td v-for="(value, index) in row.slice(1)" :key="index">
-					${{ getRowValue(value) }}
-					<span
-						:class="{
-							'text-success': getRowValueIsPositive(value),
-							'text-danger': !getRowValueIsPositive(value),
+			<template v-for="row in tableBreakdown.slice(1)" :key="row.header.id">
+				<tr :class="{'table-active': row.header.level === 'Top' || row.header.level === 'Mid'}">
+					<td
+						:style="{
+							'text-align': 'left',
+							'font-weight':
+								row.header.level === 'Top'
+									? 'bold'
+									: row.header.level === 'Mid'
+									? '600'
+									: 'normal',
+							'padding-left': row.header.level === 'Sub' ? '20px' : '10px',
 						}"
-						>( {{ getRowPercentageChange(value) }}%)</span
 					>
-				</td>
-			</tr>
+						<span
+							v-if="row.children && row.children.length > 0"
+							@click="toggleRow(row.header.id)"
+							style="cursor: pointer; margin-right: 5px;"
+						>
+							{{ isRowExpanded(row.header.id) ? '▾' : '▸' }}
+						</span>
+						{{ row.header.name }}
+					</td>
+					<td v-for="(value, index) in row.values" :key="index">
+						${{ value.value }}
+						<span
+							:class="{
+								'text-success': value.isPositive,
+								'text-danger': !value.isPositive,
+							}"
+							>( {{ value.percentageChange }}%)</span
+						>
+					</td>
+				</tr>
+				<template v-if="isRowExpanded(row.header.id) && row.children && row.children.length > 0">
+					<template v-for="childRow in row.children" :key="childRow.header.id">
+						<tr>
+							<td
+								:style="{
+									'text-align': 'left',
+									'font-weight':
+										childRow.header.level === 'Top'
+											? 'bold'
+											: childRow.header.level === 'Mid'
+											? '600'
+											: 'normal',
+									'padding-left': childRow.header.level === 'Sub' ? '40px' : '20px',
+								}"
+							>
+								<span
+									v-if="childRow.children && childRow.children.length > 0"
+									@click="toggleRow(childRow.header.id)"
+									style="cursor: pointer; margin-right: 5px;"
+								>
+									{{ isRowExpanded(childRow.header.id) ? '▾' : '▸' }}
+								</span>
+								{{ childRow.header.name }}
+							</td>
+							<td v-for="(value, index) in childRow.values" :key="index">
+								${{ value.value }}
+								<span
+									:class="{
+										'text-success': value.isPositive,
+										'text-danger': !value.isPositive,
+									}"
+									>( {{ value.percentageChange }}%)</span
+								>
+							</td>
+						</tr>
+						<template v-if="isRowExpanded(childRow.header.id) && childRow.children && childRow.children.length > 0">
+							<tr v-for="subChildRow in childRow.children" :key="subChildRow.header.id">
+								<td
+									:style="{
+										'text-align': 'left',
+										'font-weight': 'normal',
+										'padding-left': '60px',
+									}"
+								>
+									{{ subChildRow.header.name }}
+								</td>
+								<td v-for="(value, index) in subChildRow.values" :key="index">
+									${{ value.value }}
+									<span
+										:class="{
+											'text-success': value.isPositive,
+											'text-danger': !value.isPositive,
+										}"
+										>( {{ value.percentageChange }}%)</span
+									>
+								</td>
+							</tr>
+						</template>
+					</template>
+				</template>
+			</template>
 		</tbody>
 	</table>
 </template>
-
