@@ -22,7 +22,7 @@ const categoriesStore = useCategoriesStore()
 const { transactions, maxDate, hasData } = storeToRefs(store)
 const { allCategories } = storeToRefs(categoriesStore)
 const currentDate = ref<Date>(new Date())
-const isYtd = ref(true)
+const isYtd = ref(false)
 const selectedCategories = ref<string[]>(['Income', 'Expenses', 'Investment'])
 const categoriesToSelect = computed(() => {
 	return [...allCategories.value.filter((x) => x !== 'Ignore'), 'Expenses']

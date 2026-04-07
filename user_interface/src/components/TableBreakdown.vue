@@ -55,21 +55,28 @@ const expandedRows = ref<Set<string>>(new Set())
 
 // Initialize expandedRows on component mount
 onMounted(() => {
-    // Add top-level categories
-    expandedRows.value.add('Income');
-    expandedRows.value.add('Investment');
-    expandedRows.value.add('Expenses');
-});
+	// Add top-level categories
+	expandedRows.value.add('Income')
+	expandedRows.value.add('Investment')
+	expandedRows.value.add('Expenses')
+})
 
 // Watch for changes in `categories.value` to set default expanded state for dynamic mid-level categories
-watch(categories, (newCategories) => {
-    // Only set defaults for categories that are not yet in expandedRows
-    for (const category of Object.keys(newCategories)) {
-        if (!['Income', 'Investment', 'Ignore'].includes(category) && !expandedRows.value.has(category)) {
-            expandedRows.value.add(category);
-        }
-    }
-}, { immediate: true }); // immediate: true will run the watcher once on component creation
+watch(
+	categories,
+	(newCategories) => {
+		// Only set defaults for categories that are not yet in expandedRows
+		for (const category of Object.keys(newCategories)) {
+			if (
+				!['Income', 'Investment', 'Ignore'].includes(category) &&
+				!expandedRows.value.has(category)
+			) {
+				expandedRows.value.add(category)
+			}
+		}
+	},
+	{ immediate: true }
+) // immediate: true will run the watcher once on component creation
 
 const toggleRow = (id: string) => {
 	if (expandedRows.value.has(id)) {
@@ -81,24 +88,84 @@ const toggleRow = (id: string) => {
 
 const isRowExpanded = (id: string) => expandedRows.value.has(id)
 
+const exportToCSV = () => {
+	const rows: string[] = []
+
+	// Add header row
+	const headerRow = [tableBreakdown.value[0].header.name]
+	headerRow.push(...tableBreakdown.value[0].values.map((v) => v.value))
+	rows.push(headerRow.map((cell) => `"${cell}"`).join(','))
+
+	// Add data rows
+	const addRowToCSV = (row: TableRow, level: number = 0) => {
+		const indent = '  '.repeat(level)
+		const rowName = level > 0 ? indent + row.header.name : row.header.name
+		const csvRow = [rowName]
+		row.values.forEach((v) => {
+			csvRow.push(`$${v.value}`)
+		})
+		rows.push(csvRow.map((cell) => `"${cell}"`).join(','))
+
+		// Add children
+		if (row.children) {
+			row.children.forEach((child) => addRowToCSV(child, level + 1))
+		}
+	}
+
+	// Process all rows except the time unit row
+	tableBreakdown.value.slice(1).forEach((row) => addRowToCSV(row, 0))
+
+	// Generate CSV content
+	const csvContent = rows.join('\n')
+
+	// Create blob and download
+	const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+	const link = document.createElement('a')
+	const url = URL.createObjectURL(blob)
+	link.setAttribute('href', url)
+	link.setAttribute('download', `table-breakdown-${new Date().toISOString().split('T')[0]}.csv`)
+	link.style.visibility = 'hidden'
+	document.body.appendChild(link)
+	link.click()
+	document.body.removeChild(link)
+}
+
 const tableBreakdown = computed(() => {
 	const result: TableRow[] = []
 	const timeUnitRow: TableRow = {
-		header: { id: 'timeUnit', name: props.timeUnit, level: RowLevel.Top, category: null, subCategory: null },
+		header: {
+			id: 'timeUnit',
+			name: props.timeUnit,
+			level: RowLevel.Top,
+			category: null,
+			subCategory: null,
+		},
 		values: [],
 	}
 	result.push(timeUnitRow)
 
 	// Income
 	const incomeRow: TableRow = {
-		header: { id: 'Income', name: 'Income', level: RowLevel.Top, category: 'Income', subCategory: null },
+		header: {
+			id: 'Income',
+			name: 'Income',
+			level: RowLevel.Top,
+			category: 'Income',
+			subCategory: null,
+		},
 		values: [],
 		children: [],
 	}
 
 	for (const subCategory of categories.value['Income'] || []) {
 		incomeRow.children?.push({
-			header: { id: `Income-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Income', subCategory },
+			header: {
+				id: `Income-${subCategory}`,
+				name: subCategory,
+				level: RowLevel.Sub,
+				category: 'Income',
+				subCategory,
+			},
 			values: [],
 		})
 	}
@@ -106,14 +173,26 @@ const tableBreakdown = computed(() => {
 
 	// Investment
 	const investmentRow: TableRow = {
-		header: { id: 'Investment', name: 'Investment', level: RowLevel.Top, category: 'Investment', subCategory: null },
+		header: {
+			id: 'Investment',
+			name: 'Investment',
+			level: RowLevel.Top,
+			category: 'Investment',
+			subCategory: null,
+		},
 		values: [],
 		children: [],
 	}
 
 	for (const subCategory of categories.value['Investment'] || []) {
 		investmentRow.children?.push({
-			header: { id: `Investment-${subCategory}`, name: subCategory, level: RowLevel.Sub, category: 'Investment', subCategory },
+			header: {
+				id: `Investment-${subCategory}`,
+				name: subCategory,
+				level: RowLevel.Sub,
+				category: 'Investment',
+				subCategory,
+			},
 			values: [],
 		})
 	}
@@ -121,7 +200,13 @@ const tableBreakdown = computed(() => {
 
 	// Expenses
 	const expensesRow: TableRow = {
-		header: { id: 'Expenses', name: 'Expenses', level: RowLevel.Top, category: 'Expenses', subCategory: null },
+		header: {
+			id: 'Expenses',
+			name: 'Expenses',
+			level: RowLevel.Top,
+			category: 'Expenses',
+			subCategory: null,
+		},
 		values: [],
 		children: [],
 	}
@@ -131,14 +216,26 @@ const tableBreakdown = computed(() => {
 			continue
 		}
 		const midRow: TableRow = {
-			header: { id: category, name: category, level: RowLevel.Mid, category, subCategory: null },
+			header: {
+				id: category,
+				name: category,
+				level: RowLevel.Mid,
+				category,
+				subCategory: null,
+			},
 			values: [],
 			children: [],
 		}
 
 		for (const subCategory of categories.value[category]) {
 			midRow.children?.push({
-				header: { id: `${category}-${subCategory}`, name: subCategory, level: RowLevel.Sub, category, subCategory },
+				header: {
+					id: `${category}-${subCategory}`,
+					name: subCategory,
+					level: RowLevel.Sub,
+					category,
+					subCategory,
+				},
 				values: [],
 			})
 		}
@@ -210,6 +307,11 @@ const tableBreakdown = computed(() => {
 </script>
 
 <template>
+	<div style="margin-bottom: 15px">
+		<button @click="exportToCSV" class="btn btn-primary" title="Export table data to CSV">
+			📥 Export to CSV
+		</button>
+	</div>
 	<table class="table table-striped">
 		<thead>
 			<tr>
@@ -221,7 +323,11 @@ const tableBreakdown = computed(() => {
 		</thead>
 		<tbody>
 			<template v-for="row in tableBreakdown.slice(1)" :key="row.header.id">
-				<tr :class="{'table-active': row.header.level === 'Top' || row.header.level === 'Mid'}">
+				<tr
+					:class="{
+						'table-active': row.header.level === 'Top' || row.header.level === 'Mid',
+					}"
+				>
 					<td
 						:style="{
 							'text-align': 'left',
@@ -237,7 +343,7 @@ const tableBreakdown = computed(() => {
 						<span
 							v-if="row.children && row.children.length > 0"
 							@click="toggleRow(row.header.id)"
-							style="cursor: pointer; margin-right: 5px;"
+							style="cursor: pointer; margin-right: 5px"
 						>
 							{{ isRowExpanded(row.header.id) ? '▾' : '▸' }}
 						</span>
@@ -254,7 +360,9 @@ const tableBreakdown = computed(() => {
 						>
 					</td>
 				</tr>
-				<template v-if="isRowExpanded(row.header.id) && row.children && row.children.length > 0">
+				<template
+					v-if="isRowExpanded(row.header.id) && row.children && row.children.length > 0"
+				>
 					<template v-for="childRow in row.children" :key="childRow.header.id">
 						<tr>
 							<td
@@ -266,13 +374,14 @@ const tableBreakdown = computed(() => {
 											: childRow.header.level === 'Mid'
 											? '600'
 											: 'normal',
-									'padding-left': childRow.header.level === 'Sub' ? '40px' : '20px',
+									'padding-left':
+										childRow.header.level === 'Sub' ? '40px' : '20px',
 								}"
 							>
 								<span
 									v-if="childRow.children && childRow.children.length > 0"
 									@click="toggleRow(childRow.header.id)"
-									style="cursor: pointer; margin-right: 5px;"
+									style="cursor: pointer; margin-right: 5px"
 								>
 									{{ isRowExpanded(childRow.header.id) ? '▾' : '▸' }}
 								</span>
@@ -289,8 +398,17 @@ const tableBreakdown = computed(() => {
 								>
 							</td>
 						</tr>
-						<template v-if="isRowExpanded(childRow.header.id) && childRow.children && childRow.children.length > 0">
-							<tr v-for="subChildRow in childRow.children" :key="subChildRow.header.id">
+						<template
+							v-if="
+								isRowExpanded(childRow.header.id) &&
+								childRow.children &&
+								childRow.children.length > 0
+							"
+						>
+							<tr
+								v-for="subChildRow in childRow.children"
+								:key="subChildRow.header.id"
+							>
 								<td
 									:style="{
 										'text-align': 'left',
